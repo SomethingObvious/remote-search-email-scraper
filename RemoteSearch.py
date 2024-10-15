@@ -81,9 +81,19 @@ def clean_paragraph(paragraph):
     return re.sub(r'\[[A-Za-z0-9]+\]', '', paragraph).strip()  # Remove patterns like [2], [abc], [2abc], etc.
 
 def search_and_extract(query):
-    """Search the web for the query and extract paragraphs until the total character count exceeds 500."""
-    search_url = f"https://www.google.com/search?q={query}+wiki"
+    """Search the web for the query and extract paragraphs until the total character count exceeds 500.
+       Handles cases for Quora and Reddit searches with specific extraction logic.
+    """
     headers = {'User-Agent': 'Mozilla/5.0'}  # Mimic a browser
+    
+    # Adjust the query URL based on whether it's for Quora or Reddit
+    if 'quora' in query.lower():
+        search_url = f"https://www.google.com/search?q={query}"  # No '+wiki' for Quora
+    elif 'reddit' in query.lower():
+        search_url = f"https://www.google.com/search?q={query}"  # No '+wiki' for Reddit
+    else:
+        search_url = f"https://www.google.com/search?q={query}+wiki"  # Default to wiki searches
+
     print(f"Searching URL: {search_url}")  # Print the URL being used for the search
     response = requests.get(search_url, headers=headers)
 
@@ -93,19 +103,50 @@ def search_and_extract(query):
         # Find all search result links
         search_results = soup.find_all('a')
 
-        # Look for the first valid link that contains "url?q="
+        # Look for the first valid link
         for result in search_results:
             link = result.get('href')
             if link and 'url?q=' in link:
                 # Extract the actual URL from the link
                 link_url = link.split('url?q=')[1].split('&')[0]
                 link_url = urllib.parse.unquote(link_url)  # Decode the URL
-                
-                # Check if the link is a Wikipedia link
-                if "wikipedia.org" in link_url:
-                    print(f"Following link: {link_url}")
-                    
-                    # Follow the link and extract content
+
+                # For Quora, extract text from q-box elements and their nested spans
+                if 'quora.com' in link_url:
+                    print(f"Following Quora link: {link_url}")
+                    page_response = requests.get(link_url, headers=headers)
+                    if page_response.status_code == 200:
+                        page_soup = BeautifulSoup(page_response.text, 'html.parser')
+                        
+                        # Find elements with class "q-box qu-userSelect--text"
+                        quora_texts = page_soup.find_all('span', class_='q-box qu-userSelect--text', limit=2)
+                        print(quora_texts)
+                        accumulated_text = ""
+                        
+                        for span in quora_texts:
+                            # Find nested spans inside the "q-box" span and extract their text
+                            nested_spans = span.find_all('span')
+                            for nested_span in nested_spans:
+                                accumulated_text += clean_paragraph(nested_span.get_text()) + " "
+                        
+                        return accumulated_text.strip() if accumulated_text else "No suitable content found in Quora response."
+
+                # For Reddit, extract content based on ID pattern
+                elif 'reddit.com' in link_url:
+                    print(f"Following Reddit link: {link_url}")
+                    page_response = requests.get(link_url, headers=headers)
+                    if page_response.status_code == 200:
+                        page_soup = BeautifulSoup(page_response.text, 'html.parser')
+
+                        # Find the first div where the id contains both 't3' and 'post-rtjson-content'
+                        reddit_post = page_soup.find('div', id=lambda x: x and 't3' in x and 'post-rtjson-content' in x)
+                        if reddit_post:
+                            accumulated_text = clean_paragraph(reddit_post.get_text())
+                            return accumulated_text.strip() if accumulated_text else "No suitable content found in Reddit post."
+
+                # For Wikipedia or general search, continue with the original logic
+                elif "wikipedia.org" in link_url:
+                    print(f"Following Wikipedia link: {link_url}")
                     page_response = requests.get(link_url, headers=headers)
                     if page_response.status_code == 200:
                         page_soup = BeautifulSoup(page_response.text, 'html.parser')
@@ -125,14 +166,16 @@ def search_and_extract(query):
                             # Append additional paragraphs until character limit is reached
                             if first_paragraph_found:
                                 cleaned_text = clean_paragraph(p.get_text())  # Clean the paragraph text
-                                accumulated_text += cleaned_text + " "  # Append cleaned text
+                                accumulated_text += cleaned_text + " "
                                 
                             # Check if the total length exceeds 500 characters
                             if len(accumulated_text) > 500:
                                 return accumulated_text.strip()  # Return the accumulated text if it exceeds 500 characters
 
                     break  # Exit after following the first valid Wikipedia link
-    return None  # Return None if no suitable paragraph is found
+
+    return None  # Return None if no suitable content is found
+
 
 def send_sms(message):
     """Send an SMS using Twilio."""
@@ -217,7 +260,7 @@ def monitor_emails(service, label_id, label_name):
                 last_scraped_email_id = latest_email_id  # Update the last scraped email ID
                 is_first_message = False  # Set to False after the first message
                 
-            time.sleep(10)  # Check for new emails every 10 seconds
+            time.sleep(5)  # Check for new emails every 10 seconds
         except Exception as e:
             print(f"Error during email monitoring: {e}")
 
