@@ -9,7 +9,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from bs4 import BeautifulSoup
-from twilio.rest import Client  # Import Twilio Client
+from twilio.rest import Client  # type: ignore # Import Twilio Client
 import urllib.parse  # Import urllib for URL parsing
 
 def load_config(filename):
