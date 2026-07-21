@@ -1,0 +1,23 @@
+# Copy this file to config.txt and fill in your own values.
+# config.txt is gitignored - never commit your real credentials.
+# Every setting can also be supplied as an environment variable of the same name;
+# the environment wins over the file.
+
+# Twilio (https://console.twilio.com, on the account dashboard)
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your_auth_token
+TWILIO_PHONE_FROM=+15551234567
+PHONE_TO=+15557654321
+
+# Gmail API (https://console.cloud.google.com - enable the Gmail API, then
+# create an OAuth client ID of type "Desktop app" and download its JSON).
+# The scope must allow modify: the poller marks messages read after answering
+# them so it never replies to the same text twice.
+GMAIL_SCOPE=https://www.googleapis.com/auth/gmail.modify
+GMAIL_CREDENTIALS_FILE=credentials.json
+GMAIL_TOKEN_FILE=token.json
+
+# Optional
+LABEL_NAME=Remote Server
+POLL_INTERVAL=5
+MAX_SMS_CHARS=300
