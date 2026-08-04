@@ -1,3 +1,31 @@
+[project]
+name = "remote-search"
+version = "3.0.0"
+description = "Answer questions texted from a phone with no data, over SMS"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+
+dependencies = [
+  "requests",
+  "beautifulsoup4",
+  # Only imported when the poller runs, so `--query` works without any accounts.
+  "google-auth",
+  "google-auth-oauthlib",
+  "google-api-python-client",
+  "twilio",
+]
+
+[project.scripts]
+remote-search = "RemoteSearch:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["RemoteSearch"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

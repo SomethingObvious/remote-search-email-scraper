@@ -17,7 +17,16 @@ GMAIL_SCOPE=https://www.googleapis.com/auth/gmail.modify
 GMAIL_CREDENTIALS_FILE=credentials.json
 GMAIL_TOKEN_FILE=token.json
 
+# Who is allowed to ask. Comma-separated addresses, or bare domains to accept any
+# address there. Your carrier's SMS-to-email gateway domain is the one you want.
+# Leave it empty and anything that lands in the label gets answered, and every
+# answer is a billed SMS you did not ask for.
+ALLOWED_SENDERS=@txt.bell.ca,me@example.com
+
 # Optional
 LABEL_NAME=Remote Server
 POLL_INTERVAL=5
 MAX_SMS_CHARS=300
+# Ceiling on texts sent per poll, so a burst of mail can't run up the Twilio bill.
+# Anything over the cap stays unread and goes out on the next poll.
+MAX_REPLIES_PER_POLL=10
