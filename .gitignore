@@ -1,20 +1,23 @@
-# local secrets / credentials - never commit these
+# Secrets and the saved Gmail login, which should never be committed
 config.txt
 credentials.json
 token.json
 token.pickle
 *.pickle
 
-# python
+# Python
 __pycache__/
 *.py[cod]
+*.egg-info/
+build/
 .mypy_cache/
+.pytest_cache/
 .ruff_cache/
 .venv/
 venv/
 env/
 
-# editors / os
+# Editors and OS
 .idea/
 .vscode/
 .DS_Store

@@ -1,72 +1,66 @@
-"""Remote web search over SMS.
+"""Answer questions texted from a phone that has signal but no data.
 
-A field device with no data connection texts a question. The carrier's SMS-to-email
-gateway drops it into a Gmail label. This script watches that label, answers the
-question from a handful of free web APIs, and texts the answer back through Twilio.
-
-Text ``help`` to see the commands. Anything without a command prefix runs a plain
-web search. Run ``python RemoteSearch.py --query "weather Toronto"`` to try the
-lookups from a terminal without any Gmail or Twilio credentials.
+A carrier's SMS-to-email gateway drops each text into a Gmail label. This reads the
+label, looks each question up in a few free web APIs and texts the answer to PHONE_TO
+through Twilio. ``python RemoteSearch.py --query "sun Tofino"`` tries a lookup without
+any accounts.
 """
-
-from __future__ import annotations
 
 import argparse
 import base64
-import json
+import html
 import logging
 import os
 import re
+import unicodedata
 import urllib.parse
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from functools import lru_cache, wraps
+from email.utils import parseaddr
+from functools import cache
 from pathlib import Path
 from time import sleep
 from typing import Any
 
 import requests
 from bs4 import BeautifulSoup
+from google.auth.exceptions import RefreshError
 from requests.adapters import HTTPAdapter
+from twilio.base.exceptions import TwilioException
 from urllib3.util.retry import Retry
 
 logger = logging.getLogger("remotesearch")
 
-REQUEST_TIMEOUT = 10  # seconds, so a stuck target can't hang the poll loop
-USER_AGENT = "RemoteSearch/3.0 (+https://github.com/SomethingObvious/remote-search-email-scraper)"
-DEFAULT_SMS_CHARS = 300  # ~2 GSM-7 segments
-MAX_QUERY_CHARS = 200  # a mail body longer than this is boilerplate, not a question
-DEFAULT_MAX_REPLIES = 10  # per poll; every reply past this is a Twilio charge
+REQUEST_TIMEOUT = 10  # seconds, so one stuck API can't hang the poll loop
+USER_AGENT = "RemoteSearch/3.1 (+https://github.com/SomethingObvious/remote-search-email-scraper)"
+DEFAULT_SMS_CHARS = 300  # two GSM-7 segments hold 306
+TWILIO_MAX_CHARS = 1600  # Twilio rejects a longer body outright
+MAX_QUERY_CHARS = 200  # anything longer is a signature or boilerplate, not a question
+DEFAULT_MAX_REPLIES = 10  # per poll, and every reply is a billed SMS
+DEFAULT_INTERVAL = 5
+DEFAULT_LABEL = "Remote Server"
+DEFAULT_SCOPE = "https://www.googleapis.com/auth/gmail.modify"
+# Marking mail read needs one of these, and a read-only scope fails on every message.
+MODIFY_SCOPES = (DEFAULT_SCOPE, "https://mail.google.com/")
 
-# Keys read from config file and/or environment. Gmail needs the modify scope now
-# because the poller marks messages read so it never answers the same text twice.
-GMAIL_KEYS = ("GMAIL_CREDENTIALS_FILE", "GMAIL_TOKEN_FILE", "GMAIL_SCOPE")
-# GMAIL_SCOPE has a default, so it isn't required; the credentials/token paths are.
-GMAIL_REQUIRED = ("GMAIL_CREDENTIALS_FILE", "GMAIL_TOKEN_FILE")
+GMAIL_KEYS = ("GMAIL_CREDENTIALS_FILE", "GMAIL_TOKEN_FILE")
 TWILIO_KEYS = ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_FROM", "PHONE_TO")
 OPTIONAL_KEYS = (
+    "GMAIL_SCOPE",
     "LABEL_NAME",
     "POLL_INTERVAL",
     "MAX_SMS_CHARS",
     "ALLOWED_SENDERS",
     "MAX_REPLIES_PER_POLL",
 )
-DEFAULT_SCOPE = "https://www.googleapis.com/auth/gmail.modify"
 
 
-# --------------------------------------------------------------------------- #
-# Config
-# --------------------------------------------------------------------------- #
 def load_config(path: str) -> dict[str, str]:
-    """Read ``key=value`` lines from a file, then let environment variables win.
-
-    Both sources are optional: a deployment can ship a config file, use env vars
-    (e.g. a systemd unit or a secrets manager), or mix the two.
-    """
+    """Read ``KEY=value`` lines from ``path`` if it exists, with environment variables winning."""
     config: dict[str, str] = {}
     file = Path(path)
     if file.exists():
-        for raw in file.read_text(encoding="utf-8").splitlines():
+        for raw in file.read_text(encoding="utf-8-sig").splitlines():
             line = raw.strip()
             if line and not line.startswith("#") and "=" in line:
                 key, value = line.split("=", 1)
@@ -77,120 +71,123 @@ def load_config(path: str) -> dict[str, str]:
     return config
 
 
+def require(config: dict[str, str], keys: tuple[str, ...], path: str) -> None:
+    missing = [k for k in keys if not config.get(k)]
+    if missing:
+        raise SystemExit(
+            f"Neither {path} nor the environment sets {', '.join(missing)}. "
+            "config.example.txt shows what each one is."
+        )
+
+
+def setting(config: dict[str, str], key: str, default: int) -> int:
+    """Read a config value that has to be a whole number of 1 or more."""
+    raw = config.get(key) or str(default)
+    if not raw.isdecimal() or int(raw) < 1:
+        raise SystemExit(f"{key} has to be a whole number of 1 or more, not {raw!r}.")
+    return int(raw)
+
+
 def allowed_senders(config: dict[str, str]) -> set[str]:
     """Parse ALLOWED_SENDERS into a lowercase set of addresses and bare domains."""
     raw = config.get("ALLOWED_SENDERS", "")
     return {part.strip().lower().lstrip("@") for part in raw.split(",") if part.strip()}
 
 
-def require(config: dict[str, str], keys: tuple[str, ...]) -> None:
-    """Raise with a clear message listing every missing key at once."""
-    missing = [k for k in keys if not config.get(k)]
-    if missing:
-        raise SystemExit(f"Missing required config: {', '.join(missing)} (see config.example.txt)")
-
-
-# --------------------------------------------------------------------------- #
-# HTTP
-# --------------------------------------------------------------------------- #
-@lru_cache(maxsize=1)
+@cache
 def session() -> requests.Session:
-    """One pooled session for the whole process: keep-alive plus retry on 429/5xx."""
+    """One pooled session for the process, retrying 429 and 5xx twice."""
     sess = requests.Session()
+    # Retry-After is ignored because urllib3 will sleep up to 6 hours on it, and every
+    # reply after that would wait behind the one rate-limited API.
     retry = Retry(
         total=2,
         backoff_factor=0.3,
         status_forcelist=(429, 500, 502, 503, 504),
         allowed_methods=("GET",),
+        respect_retry_after_header=False,
     )
-    adapter = HTTPAdapter(max_retries=retry, pool_connections=10, pool_maxsize=10)
-    sess.mount("https://", adapter)
-    sess.mount("http://", adapter)
-    sess.headers.update({"User-Agent": USER_AGENT})
+    sess.mount("https://", HTTPAdapter(max_retries=retry))
+    sess.headers["User-Agent"] = USER_AGENT
     return sess
 
 
 def get_json(url: str, **params: Any) -> Any:
-    """GET and parse JSON, or None on any network/HTTP/parse error (never raises)."""
+    """GET and parse JSON, or None on any network, HTTP or parse error."""
     try:
         resp = session().get(url, params=params or None, timeout=REQUEST_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
     except (requests.RequestException, ValueError) as exc:
-        logger.warning("request failed: %s (%s)", url, exc)
+        logger.warning("Couldn't get %s (%s)", url, exc)
         return None
-
-
-def cache_answers(func: Callable[[str], str | None]) -> Callable[[str], str | None]:
-    """Memoize only successful lookups, so a transient failure or an empty result
-    isn't remembered as the permanent answer for that query."""
-    store: dict[str, str] = {}
-
-    @wraps(func)
-    def wrapper(query: str) -> str | None:
-        if query in store:
-            return store[query]
-        result = func(query)
-        if result:
-            if len(store) >= 512:  # bounded; SMS volume never gets close
-                store.clear()
-            store[query] = result
-        return result
-
-    return wrapper
 
 
 def run_source(source: Callable[[str], str | None], arg: str) -> str | None:
-    """Call a source, turning any unexpected error into None so a broken source
-    falls back to a web search instead of crashing the reply."""
+    """Call a source, turning any error into None so the reply falls back to a web search."""
     try:
         return source(arg)
-    except Exception as exc:  # a bad source must never take down the reply
-        logger.warning("source %s failed: %s", getattr(source, "__name__", source), exc)
+    except Exception as exc:  # a bug in one source still leaves the web search to answer
+        logger.warning("%s failed on %r: %s", getattr(source, "__name__", source), arg, exc)
         return None
 
 
-# --------------------------------------------------------------------------- #
-# Text helpers
-# --------------------------------------------------------------------------- #
-# Carrier gateways wrap the real text in boilerplate; strip the common ones.
+# Rogers puts "Rogers MMS" in front of the text itself, but a bare "Rogers" only
+# counts as noise on its own line, or "who is Fred Rogers" would lose its answer.
 CARRIER_NOISE = re.compile(
-    r"Rogers MMS|This message is brought to you by|Rogers|Sent from my \w+",
-    re.IGNORECASE,
+    r"Rogers MMS|^\s*Rogers\s*$|This message is brought to you by[^\n]*|Sent from my \w+",
+    re.IGNORECASE | re.MULTILINE,
 )
 
 
 def clean_query(text: str) -> str:
-    """Drop carrier boilerplate and collapse whitespace to a single line."""
+    """Drop carrier boilerplate and collapse the rest to one line."""
     text = CARRIER_NOISE.sub("", text)
     return re.sub(r"\s+", " ", text).strip()
 
 
-def html_to_text(html: str) -> str:
-    """Flatten an HTML email body to a clean query string."""
-    return clean_query(BeautifulSoup(html, "html.parser").get_text(" "))
+def html_to_text(markup: str) -> str:
+    return clean_query(BeautifulSoup(markup, "html.parser").get_text("\n"))
 
 
 def strip_refs(text: str) -> str:
-    """Remove bracketed reference markers like [2] or [note] from prose."""
+    """Remove reference markers like [2] or [note] from prose."""
     return re.sub(r"\[[A-Za-z0-9]+\]", "", text).strip()
 
 
 def truncate(text: str, limit: int) -> str:
-    """Trim to ``limit`` chars on a word boundary, GSM-7 safe (plain '...').
-
-    The result is never longer than ``limit``. Below four characters there is no room
-    for the ellipsis, and ``text[:limit - 3]`` would slice from the end instead.
-    """
+    """Trim to at most ``limit`` characters on a word boundary, ending in a plain '...'."""
     text = re.sub(r"\s+", " ", text).strip()
     if len(text) <= limit:
         return text
-    if limit <= 3:
+    if limit <= 3:  # no room for the dots, and text[:limit - 3] would slice from the end
         return text[: max(limit, 0)]
     cut = text[: limit - 3]
     if " " in cut:
         cut = cut.rsplit(" ", 1)[0]
     return cut.rstrip() + "..."
+
+
+# One character outside GSM-7 makes Twilio send the whole reply as UCS-2, where a
+# segment holds 67 characters instead of 153, so a 300-character answer bills as 5.
+SMS_PUNCTUATION = str.maketrans(
+    {
+        "\N{LEFT SINGLE QUOTATION MARK}": "'",
+        "\N{RIGHT SINGLE QUOTATION MARK}": "'",
+        "\N{LEFT DOUBLE QUOTATION MARK}": '"',
+        "\N{RIGHT DOUBLE QUOTATION MARK}": '"',
+        "\N{MINUS SIGN}": "-",
+        "`": "'",
+    }
+)
+
+
+def plain_ascii(text: str) -> str:
+    """Fold text to plain ASCII, dropping accents and anything with no ASCII form."""
+    text = text.translate(SMS_PUNCTUATION)
+    # Every character Unicode files as dash punctuation (category Pd) becomes a hyphen.
+    text = "".join("-" if unicodedata.category(c) == "Pd" else c for c in text)
+    return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
 
 
 # Words that carry no topic, so they never count as evidence that a result matches.
@@ -201,38 +198,36 @@ STOPWORDS = frozenset(
 )
 
 
+def words(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9]+", text.lower())
+
+
 def content_words(text: str) -> set[str]:
     """Lowercase words of three or more letters that aren't stopwords."""
-    words = re.findall(r"[a-z0-9]+", text.lower())
-    return {w for w in words if len(w) >= 3 and w not in STOPWORDS}
+    return {w for w in words(text) if len(w) >= 3 and w not in STOPWORDS}
 
 
 def _shares_stem(a: str, b: str) -> bool:
     if a == b:
         return True
     common = len(os.path.commonprefix([a, b]))
-    return common >= 4  # purify/purified, boil/boiler; not hike/hiking, open/opera
+    return common >= 4  # purify and purified, boil and boiler, but not hike and hiking
 
 
 def looks_relevant(query: str, title: str) -> bool:
-    """True when the result's title actually overlaps what was asked.
+    """True when a result's title overlaps what was asked.
 
     Wikipedia's search returns a hit for any query built from real words, so without
-    this the tool answers "how do I treat a blister" with a summary of a memoir that
-    mentions blisters, and "is highway 4 open" with the wrong highway in the wrong
-    province. On a trail with no data, a confident wrong answer is worse than none.
+    this "how do I treat a blister" gets a summary of a memoir that mentions blisters.
+    On a trail with no data, a confident wrong answer is worse than none.
     """
-    asked = content_words(query)
-    return any(_shares_stem(t, q) for t in content_words(title) for q in asked)
+    # A query made only of short words ("AC/DC", "UV") still has to match something.
+    asked = content_words(query) or set(words(query))
+    return any(_shares_stem(t, q) for t in words(title) for q in asked)
 
 
-# --------------------------------------------------------------------------- #
-# Sources — each returns a short answer string, or None if it has nothing.
-# Reference lookups (stable answers) are cached; time-sensitive ones are not.
-# --------------------------------------------------------------------------- #
-@cache_answers
 def source_duckduckgo(query: str) -> str | None:
-    """DuckDuckGo Instant Answer: direct answers, definitions, topic abstracts."""
+    """DuckDuckGo's Instant Answer, which only covers direct answers and topic abstracts."""
     data = get_json(
         "https://api.duckduckgo.com/",
         q=query,
@@ -246,18 +241,22 @@ def source_duckduckgo(query: str) -> str | None:
         value = data.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
+    # Related topics come back for nearly anything, so they get the same title check
+    # as Wikipedia. The title is the last part of the topic's URL.
     for topic in data.get("RelatedTopics", []):
-        if isinstance(topic, dict) and topic.get("Text"):
+        if not isinstance(topic, dict) or not topic.get("Text"):
+            continue
+        title = urllib.parse.unquote(str(topic.get("FirstURL", "")).rsplit("/", 1)[-1])
+        if looks_relevant(query, title.replace("_", " ")):
             return str(topic["Text"]).strip()
     return None
 
 
-@cache_answers
 def source_wikipedia(query: str) -> str | None:
     """Top Wikipedia hit's lead summary, named and checked for relevance.
 
-    The article title is part of the reply on purpose. It costs a few characters and
-    it's the only way the reader can tell a real answer from a near miss.
+    The article title goes in the reply on purpose. It costs a few characters, and it's
+    the only way the reader can tell a real answer from a near miss.
     """
     hits = get_json(
         "https://en.wikipedia.org/w/api.php",
@@ -273,26 +272,24 @@ def source_wikipedia(query: str) -> str | None:
 
     title = results[0]["title"]
     if not looks_relevant(query, title):
-        logger.info("dropped off-topic wikipedia hit %r for %r", title, query)
+        logger.info("Skipping Wikipedia's hit %r for %r as the title doesn't match", title, query)
         return None
 
-    summary = get_json(
-        f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(title)}"
-    )
-    extract = (summary or {}).get("extract")
-    if not extract:
+    # safe="" matters for titles like "AC/DC", where a bare slash splits the path.
+    path = urllib.parse.quote(title.replace(" ", "_"), safe="")
+    summary = get_json(f"https://en.wikipedia.org/api/rest_v1/page/summary/{path}")
+    if not summary or summary.get("type") == "disambiguation" or not summary.get("extract"):
         return None
-    text = strip_refs(extract)
-    # Most lead sentences open with the article name, so only prepend it when they
-    # don't. Every duplicated character is one fewer character of actual answer.
+    text = strip_refs(summary["extract"])
+    # Most lead sentences open with the article name, so it's only added when they
+    # don't. Every repeated character is one fewer character of answer.
     return text if text.lower().startswith(title.lower()) else f"{title}: {text}"
 
 
-@cache_answers
 def source_dictionary(word: str) -> str | None:
     """First one or two senses from the free Dictionary API."""
     entries = get_json(
-        f"https://api.dictionaryapi.dev/api/v2/entries/en/{urllib.parse.quote(word)}"
+        f"https://api.dictionaryapi.dev/api/v2/entries/en/{urllib.parse.quote(word, safe='')}"
     )
     if not isinstance(entries, list) or not entries:
         return None
@@ -302,10 +299,10 @@ def source_dictionary(word: str) -> str | None:
         if definitions:
             pos = meaning.get("partOfSpeech", "")
             senses.append(f"({pos}) {definitions[0].get('definition', '')}".strip())
-    return "; ".join(senses) or None
+    return " ".join(senses) or None
 
 
-# WMO weather codes, grouped. Open-Meteo returns the number; this names it.
+# Open-Meteo returns a WMO weather code, and this names it.
 WMO_CODES = {
     0: "clear",
     1: "mainly clear",
@@ -348,7 +345,7 @@ def geocode(place: str) -> dict[str, Any] | None:
 
 
 def place_label(hit: dict[str, Any]) -> str:
-    """Name a geocoded place tightly enough to catch a wrong match: 'Tofino, BC, CA'."""
+    """Name a geocoded place closely enough that a wrong match is obvious."""
     parts = [hit.get("name"), hit.get("admin1"), hit.get("country_code")]
     return ", ".join(str(p) for p in parts if p)
 
@@ -365,7 +362,7 @@ def _forecast(hit: dict[str, Any], **fields: str) -> dict[str, Any] | None:
 
 
 def source_weather(place: str) -> str | None:
-    """Current conditions from Open-Meteo, formatted plain for SMS (no emoji or degree sign)."""
+    """Current conditions from Open-Meteo, with C and km/h spelled out for SMS."""
     hit = geocode(place)
     if not hit:
         return None
@@ -384,19 +381,17 @@ def source_weather(place: str) -> str | None:
 
 
 def source_sun(place: str) -> str | None:
-    """Today's sunrise and sunset in the place's own timezone.
-
-    The question you actually ask from a trailhead, and the one a general web search
-    is worst at.
-    """
+    """Today's sunrise and sunset in the place's own timezone."""
     hit = geocode(place)
     if not hit:
         return None
-    data = _forecast(hit, daily="sunrise,sunset")
-    daily = (data or {}).get("daily") or {}
+    data = _forecast(hit, daily="sunrise,sunset") or {}
+    daily = data.get("daily") or {}
     try:
         sunrise, sunset = daily["sunrise"][0], daily["sunset"][0]
     except (KeyError, IndexError):
+        return None
+    if not sunrise or not sunset:  # null above the Arctic Circle in midsummer and midwinter
         return None
     return (
         f"{place_label(hit)}: sunrise {sunrise[11:16]}, sunset {sunset[11:16]} "
@@ -405,7 +400,7 @@ def source_sun(place: str) -> str | None:
 
 
 def source_stackoverflow(query: str) -> str | None:
-    """Top Stack Overflow question plus its highest-voted answer body."""
+    """Top Stack Overflow question plus its highest-voted answer."""
     found = get_json(
         "https://api.stackexchange.com/2.3/search/advanced",
         order="desc",
@@ -418,7 +413,8 @@ def source_stackoverflow(query: str) -> str | None:
     if not items:
         return None
     question = items[0]
-    title = question.get("title", "")
+    # Stack Exchange sends titles HTML-escaped, so "&quot;" would go out in the text.
+    title = html.unescape(question.get("title", ""))
     question_id = question.get("question_id")
     if not question_id:
         return title or None
@@ -434,7 +430,11 @@ def source_stackoverflow(query: str) -> str | None:
     if not body_items:
         return f"{title} (no answers yet)"
     body = BeautifulSoup(body_items[0].get("body", ""), "html.parser").get_text(" ", strip=True)
-    return f"{title} - {body}"
+    # The space get_text puts between tags also lands before punctuation after </code>.
+    body = re.sub(r"\s+([.,;:!?)])", r"\1", body)
+    if not title.endswith(("?", ".", "!")):
+        title += "."
+    return f"{title} {body}"
 
 
 ROUTES: dict[str, Callable[[str], str | None]] = {
@@ -452,97 +452,102 @@ ROUTES: dict[str, Callable[[str], str | None]] = {
 }
 HELP_WORDS = {"help", "?", "commands"}
 HELP_TEXT = (
-    "Commands: weather <place>, sun <place>, define <word>, wiki <topic>, so <query>, "
-    "help. Anything else runs a web search."
+    "Start a text with weather, sun, define, wiki or so and then what you want, "
+    "like 'sun Tofino'. Anything else gets a web search."
 )
-NO_RESULT_HINT = (
-    "No confident answer for '{target}'. Try a keyword instead of a question, "
-    "or a command: weather, sun, define, wiki, so."
+EMPTY_TEXT = "Your text came through empty. Text help to see the commands."
+NO_RESULT_TEXT = (
+    "Couldn't find a good answer for '{target}'. Try a keyword instead of a whole "
+    "question, or text help for the commands."
 )
+ONLINE_TEXT = "Remote search is running. Text help to see the commands."
 
 
-def default_search(query: str) -> str | None:
-    """Query DuckDuckGo and Wikipedia at the same time; prefer DuckDuckGo."""
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        ddg = pool.submit(run_source, source_duckduckgo, query)
-        wiki = pool.submit(run_source, source_wikipedia, query)
-        return ddg.result() or wiki.result()
+def default_search(query: str, skip: Callable[[str], str | None] | None = None) -> str | None:
+    """Ask DuckDuckGo and Wikipedia at once and prefer DuckDuckGo, leaving out ``skip``."""
+    sources = [s for s in (source_duckduckgo, source_wikipedia) if s is not skip]
+    with ThreadPoolExecutor(max_workers=len(sources)) as pool:
+        results = list(pool.map(lambda s: run_source(s, query), sources))
+    return next((r for r in results if r), None)
 
 
 def answer(query: str, limit: int = DEFAULT_SMS_CHARS) -> str:
-    """Route a query to a source (or a web search) and format it for one SMS reply.
-
-    Never raises: a broken source falls back to a web search, and nothing convincing
-    comes back as an honest miss rather than as the nearest unrelated article.
-    """
-    query = truncate(query.strip(), MAX_QUERY_CHARS)
+    """Route one text to a source and format the reply to fit in ``limit`` characters."""
+    query = re.sub(r"\s+", " ", query).strip()[:MAX_QUERY_CHARS].strip()
     if not query:
-        return "Empty message. Text 'help' for commands."
+        return truncate(EMPTY_TEXT, limit)
 
     command, _, rest = query.partition(" ")
-    key = command.lower().strip(":,")
-    if key in HELP_WORDS and not rest.strip():  # "help me ..." is a real query, not the command
+    key, rest = command.lower().strip(":,"), rest.strip()
+    if key in HELP_WORDS and not rest:  # "help me ..." is a real question
         return truncate(HELP_TEXT, limit)
 
-    provider = ROUTES.get(key)
+    source = ROUTES.get(key) if rest else None
     target, tag, result = query, "web", None
-    if provider and rest.strip():
-        target = rest.strip()
-        result = run_source(provider, target)
-        if result is not None:
-            tag = key
-    if result is None:  # no command, or the command's source came up empty
-        result = default_search(target)
-    if result is None:
-        return truncate(NO_RESULT_HINT.format(target=target), limit)
-    return truncate(f"{tag}: {result}", limit)
+    if source:
+        target, tag, result = rest, key, run_source(source, rest)
+    if not result:
+        tag, result = "web", default_search(target, skip=source)
+    if not result:
+        # The question is shortened so the advice after it still fits in the reply.
+        return truncate(plain_ascii(NO_RESULT_TEXT.format(target=truncate(target, 60))), limit)
+    return truncate(plain_ascii(f"{tag}: {result}"), limit)
 
 
-# --------------------------------------------------------------------------- #
-# Gmail
-# --------------------------------------------------------------------------- #
 def authenticate_gmail(config: dict[str, str]) -> Any:
-    """Build a Gmail service, reusing the cached OAuth token when it's still valid."""
+    """Build a Gmail client, asking for a browser login only when the saved one can't be used."""
     from google.auth.transport.requests import Request
     from google.oauth2.credentials import Credentials
     from google_auth_oauthlib.flow import InstalledAppFlow
     from googleapiclient.discovery import build
 
-    scopes = [config.get("GMAIL_SCOPE", DEFAULT_SCOPE)]
-    token_path = Path(config["GMAIL_TOKEN_FILE"])
-    creds = None
-    if token_path.exists():
-        creds = Credentials.from_authorized_user_info(
-            json.loads(token_path.read_text(encoding="utf-8")), scopes
-        )
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
+    scopes = [config.get("GMAIL_SCOPE") or DEFAULT_SCOPE]
+    token = Path(config["GMAIL_TOKEN_FILE"])
+    # Loaded with the scopes it was granted, so a token saved under a narrower scope
+    # is replaced here instead of failing to mark each message read.
+    creds = Credentials.from_authorized_user_file(str(token)) if token.exists() else None
+    if creds and not creds.has_scopes(scopes):
+        creds = None
+    if creds and creds.valid:
+        return build("gmail", "v1", credentials=creds)
+    if creds:
+        try:
             creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                config["GMAIL_CREDENTIALS_FILE"], scopes
+        except RefreshError as exc:
+            logger.warning("The saved Gmail login stopped working (%s), so it needs a new one", exc)
+            creds = None
+    if not creds:
+        secrets = config["GMAIL_CREDENTIALS_FILE"]
+        if not Path(secrets).exists():
+            raise SystemExit(
+                f"Couldn't find {secrets}. Download the Desktop app OAuth client JSON from the "
+                "Google Cloud console and point GMAIL_CREDENTIALS_FILE at it."
             )
-            creds = flow.run_local_server(port=0)
-        token_path.write_text(creds.to_json(), encoding="utf-8")
+        creds = InstalledAppFlow.from_client_secrets_file(secrets, scopes).run_local_server(port=0)
+    # It holds a refresh token, so nobody else on the machine should be able to read it.
+    token.touch(mode=0o600)
+    token.chmod(0o600)
+    token.write_text(creds.to_json(), encoding="utf-8")
     return build("gmail", "v1", credentials=creds)
 
 
 def get_label_id(service: Any, label_name: str) -> str | None:
-    """Resolve a Gmail label's display name to its ID."""
+    """Resolve a Gmail label's display name to its ID, ignoring case."""
     labels = service.users().labels().list(userId="me").execute().get("labels", [])
     for label in labels:
         if label["name"].lower() == label_name.lower():
             return str(label["id"])
-    logger.error("Label '%s' not found", label_name)
     return None
 
 
 def _find_body(part: dict[str, Any], mime: str) -> str | None:
-    """Walk a (possibly nested multipart) payload for the first body of ``mime``."""
-    if part.get("mimeType") == mime and part.get("body", {}).get("data"):
-        raw = base64.urlsafe_b64decode(part["body"]["data"])
-        return raw.decode("utf-8", "replace")
-    for sub in part.get("parts", []):
+    """Walk a possibly nested multipart payload for the first body of type ``mime``."""
+    data = part.get("body", {}).get("data")
+    if part.get("mimeType") == mime and data:
+        # urlsafe_b64decode refuses data without its = padding, so it's padded here in
+        # case Gmail leaves it off.
+        return base64.urlsafe_b64decode(data + "=" * (-len(data) % 4)).decode("utf-8", "replace")
+    for sub in part.get("parts") or []:
         found = _find_body(sub, mime)
         if found:
             return found
@@ -550,29 +555,30 @@ def _find_body(part: dict[str, Any], mime: str) -> str | None:
 
 
 def extract_query(message: dict[str, Any]) -> str | None:
-    """Pull the user's text out of a message, preferring plain text over HTML."""
+    """Pull the text out of a message, preferring plain text over HTML."""
     payload = message.get("payload", {})
     plain = _find_body(payload, "text/plain")
     if plain:
         return clean_query(plain)
-    html = _find_body(payload, "text/html")
-    return html_to_text(html) if html else None
+    markup = _find_body(payload, "text/html")
+    return html_to_text(markup) if markup else None
 
 
 def sender_address(message: dict[str, Any]) -> str:
-    """The bare address out of the From header, lowercased. Empty if there isn't one."""
-    for header in message.get("payload", {}).get("headers", []):
-        if header.get("name", "").lower() == "from":
-            match = re.search(r"[\w.+-]+@[\w.-]+", header.get("value", ""))
-            return match.group(0).lower() if match else ""
-    return ""
+    """The From address, lowercased, or an empty string when there isn't one clear address."""
+    headers = message.get("payload", {}).get("headers", [])
+    value = next((h.get("value", "") for h in headers if h.get("name", "").lower() == "from"), "")
+    # parseaddr takes the address in the angle brackets. A plain regex takes the first
+    # thing shaped like an address, which can be a fake one in the display name.
+    address = parseaddr(value)[1].lower()
+    return address if "@" in address else ""
 
 
 def sender_permitted(address: str, allowed: set[str]) -> bool:
     """Match a sender against the allowlist by full address or by domain.
 
-    An empty allowlist permits everything, which is what an existing install gets on
-    upgrade. main() warns about it at startup.
+    An empty allowlist lets everyone through, which keeps an install from before the
+    setting existed working. main() warns about it at startup.
     """
     if not allowed:
         return True
@@ -581,18 +587,14 @@ def sender_permitted(address: str, allowed: set[str]) -> bool:
 
 
 def unread_ids(service: Any, label_id: str) -> list[str]:
-    """IDs of unread messages under the label, oldest first.
-
-    Gmail caps a page at 100 and hands back a token for the rest. Without following
-    it, a backlog over 100 stayed unread and then arrived all at once on a later poll.
-    """
+    """IDs of unread messages under the label, oldest first, across every page."""
     ids: list[str] = []
     token = None
     while True:
         resp = (
             service.users()
             .messages()
-            .list(userId="me", labelIds=[label_id, "UNREAD"], pageToken=token)
+            .list(userId="me", labelIds=[label_id, "UNREAD"], maxResults=500, pageToken=token)
             .execute()
         )
         ids.extend(m["id"] for m in resp.get("messages", []))
@@ -601,48 +603,45 @@ def unread_ids(service: Any, label_id: str) -> list[str]:
             return list(reversed(ids))
 
 
-def mark_read(service: Any, msg_id: str) -> None:
-    service.users().messages().modify(
-        userId="me", id=msg_id, body={"removeLabelIds": ["UNREAD"]}
-    ).execute()
+def mark_read(service: Any, ids: list[str]) -> None:
+    for start in range(0, len(ids), 1000):  # batchModify takes up to 1000 IDs a call
+        body = {"ids": ids[start : start + 1000], "removeLabelIds": ["UNREAD"]}
+        service.users().messages().batchModify(userId="me", body=body).execute()
 
 
-# --------------------------------------------------------------------------- #
-# Twilio
-# --------------------------------------------------------------------------- #
 def make_sender(config: dict[str, str], dry_run: bool) -> Callable[[str], bool]:
-    """Return a ``send(text) -> delivered`` function. Dry-run logs instead of texting.
-
-    The Twilio client is built once and reused across the whole run.
-    """
+    """Return ``send(text) -> delivered``, which only logs the text on a dry run."""
     if dry_run:
 
         def pretend(text: str) -> bool:
-            logger.info("[dry-run] would send: %s", text)
+            logger.info("Dry run, so not texting: %s", text)
             return True
 
         return pretend
 
+    from twilio.http.http_client import TwilioHttpClient
     from twilio.rest import Client
 
-    client = Client(config["TWILIO_ACCOUNT_SID"], config["TWILIO_AUTH_TOKEN"])
+    # Twilio's client waits forever by default, and one stuck send would stop the poll loop.
+    client = Client(
+        config["TWILIO_ACCOUNT_SID"],
+        config["TWILIO_AUTH_TOKEN"],
+        http_client=TwilioHttpClient(timeout=REQUEST_TIMEOUT),
+    )
     to, from_ = config["PHONE_TO"], config["TWILIO_PHONE_FROM"]
 
     def send(text: str) -> bool:
         try:
             sms = client.messages.create(to=to, from_=from_, body=text)
-            logger.info("sent %s", sms.sid)
-            return True
-        except Exception as exc:  # Twilio raises many subclasses; one text failing is not fatal
-            logger.error("failed to send SMS: %s", exc)
+        except (TwilioException, requests.RequestException) as exc:
+            logger.error("Couldn't send the SMS: %s", exc)
             return False
+        logger.debug("Sent %s", sms.sid)
+        return True
 
     return send
 
 
-# --------------------------------------------------------------------------- #
-# Poll loop
-# --------------------------------------------------------------------------- #
 def process_once(
     service: Any,
     label_id: str,
@@ -652,35 +651,34 @@ def process_once(
     allowed: set[str] | None = None,
     max_replies: int = DEFAULT_MAX_REPLIES,
 ) -> int:
-    """Answer unread messages under the label and mark them read. Returns replies sent.
-
-    At most ``max_replies`` go out per poll. Every reply is a billed SMS, so a flood
-    of inbound mail must not turn into an unbounded flood of outbound texts. Anything
-    over the cap stays unread and is picked up next time.
-    """
+    """Answer unread mail under the label, up to ``max_replies``, and return how many went out."""
     replied = 0
     for msg_id in unread_ids(service, label_id):
         if replied >= max_replies:
-            logger.warning("hit the %d reply cap; the rest wait for the next poll", max_replies)
+            logger.warning(
+                "Sent %d replies this poll, which is the cap, so the rest wait for the next one",
+                max_replies,
+            )
             break
-        # Guard each message: one failure must not abort the batch or, worse, leave
-        # a message unread so it's answered again on every future poll.
         try:
             message = service.users().messages().get(userId="me", id=msg_id).execute()
+            # Marked read before the reply goes out. The other way round, a message that
+            # can't be marked gets answered (and billed) again on every poll after.
+            mark_read(service, [msg_id])
             sender = sender_address(message)
             query = extract_query(message)
-
             if not sender_permitted(sender, allowed or set()):
-                logger.warning("ignoring message from %r (not in ALLOWED_SENDERS)", sender)
-            elif query:
-                logger.info("query from %s: %s", sender or "unknown", query)
+                logger.warning("Ignoring mail from %r as it isn't in ALLOWED_SENDERS", sender)
+            elif not query:
+                logger.warning("Message %s had no text to answer", msg_id)
+            else:
+                logger.info("Question from %s: %s", sender or "an unknown sender", query)
                 if send(answer(query, limit)):
                     replied += 1
-            else:
-                logger.warning("message %s had no readable text", msg_id)
-            mark_read(service, msg_id)
-        except Exception as exc:  # log and move on to the next message
-            logger.error("failed on message %s: %s", msg_id, exc)
+        except RefreshError:
+            raise
+        except Exception as exc:  # one bad message shouldn't hold up the rest of the batch
+            logger.error("Couldn't handle message %s: %s", msg_id, exc)
     return replied
 
 
@@ -695,90 +693,117 @@ def monitor(
     allowed: set[str] | None = None,
     max_replies: int = DEFAULT_MAX_REPLIES,
 ) -> None:
-    """Poll forever. On startup, skip the existing backlog unless ``catch_up`` is set."""
+    """Poll forever, skipping the mail already waiting at startup unless ``catch_up`` is set."""
     if not catch_up:
-        for msg_id in unread_ids(service, label_id):
-            mark_read(service, msg_id)
-        send("Remote search online.")
+        mark_read(service, unread_ids(service, label_id))
+        send(ONLINE_TEXT)
 
-    logger.info("monitoring label %s every %ds", label_id, interval)
     failures = 0
     while True:
         try:
             process_once(service, label_id, send, limit, allowed=allowed, max_replies=max_replies)
             failures = 0
-        except Exception as exc:  # keep the loop alive across transient Gmail errors
+        except RefreshError:
+            raise  # retrying can't fix a revoked login, so main() explains it and exits
+        except Exception as exc:  # Gmail has short outages, and one shouldn't stop the service
             failures += 1
-            logger.error("poll failed (%d in a row): %s", failures, exc)
-        # Back off while Gmail is unhappy instead of hammering it every interval.
-        sleep(min(interval * 2**failures, 300) if failures else interval)
+            logger.error("Poll failed (%d in a row): %s", failures, exc)
+        # It backs off to 5 minutes while Gmail keeps failing instead of hammering it.
+        sleep(max(interval, min(interval * 2**failures, 300)))
 
 
-# --------------------------------------------------------------------------- #
-# CLI
-# --------------------------------------------------------------------------- #
+def positive(text: str) -> int:
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"has to be 1 or more, not {value}")
+    return value
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Answer emailed questions over SMS.")
+    parser = argparse.ArgumentParser(description="Answer questions texted in through Gmail by SMS.")
     parser.add_argument("--config", default="config.txt", help="path to the config file")
-    parser.add_argument("--query", help="answer one query and exit (no Gmail/Twilio needed)")
-    parser.add_argument("--once", action="store_true", help="process current unread mail and exit")
-    parser.add_argument("--catch-up", action="store_true", help="answer the startup backlog too")
-    parser.add_argument("--interval", type=int, help="seconds between polls")
-    parser.add_argument("--max-chars", type=int, help="max SMS length")
-    parser.add_argument("--max-replies", type=int, help="max texts sent per poll")
+    parser.add_argument("--query", help="answer one question and exit, with no accounts needed")
+    parser.add_argument("--once", action="store_true", help="answer the unread mail and exit")
+    parser.add_argument("--catch-up", action="store_true", help="answer mail waiting at startup")
+    parser.add_argument("--interval", type=positive, help="seconds between polls")
+    parser.add_argument("--max-chars", type=positive, help="longest reply in characters")
+    parser.add_argument("--max-replies", type=positive, help="most texts sent per poll")
     parser.add_argument("--dry-run", action="store_true", help="log replies instead of texting")
-    parser.add_argument("--verbose", action="store_true", help="debug logging")
+    parser.add_argument("--verbose", action="store_true", help="log debug detail")
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
-    )
+    # Only this script logs at INFO. Twilio's client logs every request at INFO,
+    # account SID included.
+    logging.basicConfig(format="%(asctime)s %(levelname)s %(message)s")
+    logger.setLevel(logging.DEBUG if args.verbose else logging.INFO)
 
-    if args.query:
+    if args.query is not None:
         print(answer(args.query, args.max_chars or DEFAULT_SMS_CHARS))
         return
 
     config = load_config(args.config)
-    require(config, GMAIL_REQUIRED + TWILIO_KEYS)
-    limit = args.max_chars or int(config.get("MAX_SMS_CHARS", DEFAULT_SMS_CHARS))
-    interval = args.interval or int(config.get("POLL_INTERVAL", 5))
-    max_replies = args.max_replies or int(config.get("MAX_REPLIES_PER_POLL", DEFAULT_MAX_REPLIES))
+    require(config, GMAIL_KEYS if args.dry_run else GMAIL_KEYS + TWILIO_KEYS, args.config)
+    scope = config.get("GMAIL_SCOPE") or DEFAULT_SCOPE
+    if scope not in MODIFY_SCOPES:
+        raise SystemExit(
+            f"GMAIL_SCOPE is {scope}, which can't mark mail read. Use {DEFAULT_SCOPE}."
+        )
+    limit = args.max_chars or setting(config, "MAX_SMS_CHARS", DEFAULT_SMS_CHARS)
+    if limit > TWILIO_MAX_CHARS:
+        raise SystemExit(
+            f"The reply limit is {limit} characters, but Twilio won't send more than "
+            f"{TWILIO_MAX_CHARS}. Lower MAX_SMS_CHARS or --max-chars."
+        )
+    interval = args.interval or setting(config, "POLL_INTERVAL", DEFAULT_INTERVAL)
+    max_replies = args.max_replies or setting(config, "MAX_REPLIES_PER_POLL", DEFAULT_MAX_REPLIES)
 
     allowed = allowed_senders(config)
     if allowed:
-        logger.info("answering only mail from: %s", ", ".join(sorted(allowed)))
+        logger.info("Answering mail from %s only", ", ".join(sorted(allowed)))
     else:
         logger.warning(
-            "ALLOWED_SENDERS is unset: anything that lands in the label gets answered, "
-            "and every answer is a billed SMS. Set it to your carrier's gateway domain."
+            "ALLOWED_SENDERS is empty, so any mail that reaches the label gets a billed SMS "
+            "in reply. Set it to your carrier's gateway domain."
         )
 
     service = authenticate_gmail(config)
-    label_id = get_label_id(service, config.get("LABEL_NAME", "Remote Server"))
+    label_name = config.get("LABEL_NAME") or DEFAULT_LABEL
+    label_id = get_label_id(service, label_name)
     if not label_id:
-        raise SystemExit(1)
+        raise SystemExit(
+            f"There's no Gmail label called {label_name!r}. Create it, or set LABEL_NAME "
+            "to the label your gateway filter applies."
+        )
 
     send = make_sender(config, args.dry_run)
-    if args.once:
-        count = process_once(
-            service, label_id, send, limit, allowed=allowed, max_replies=max_replies
-        )
-        logger.info("sent %d repl%s", count, "y" if count == 1 else "ies")
-    else:
-        monitor(
-            service,
-            label_id,
-            send,
-            limit=limit,
-            interval=interval,
-            catch_up=args.catch_up,
-            allowed=allowed,
-            max_replies=max_replies,
-        )
+    try:
+        if args.once:
+            count = process_once(
+                service, label_id, send, limit, allowed=allowed, max_replies=max_replies
+            )
+            logger.info("Sent %d %s", count, "reply" if count == 1 else "replies")
+        else:
+            logger.info("Checking the %r label every %d seconds", label_name, interval)
+            monitor(
+                service,
+                label_id,
+                send,
+                limit=limit,
+                interval=interval,
+                catch_up=args.catch_up,
+                allowed=allowed,
+                max_replies=max_replies,
+            )
+    except RefreshError as exc:
+        raise SystemExit(
+            f"Gmail turned down the saved login ({exc}). Delete {config['GMAIL_TOKEN_FILE']} "
+            "and run this again to log back in."
+        ) from None
+    except KeyboardInterrupt:
+        pass  # Ctrl-C is how it's meant to be stopped
 
 
 if __name__ == "__main__":
