@@ -1,32 +1,28 @@
-# Copy this file to config.txt and fill in your own values.
-# config.txt is gitignored - never commit your real credentials.
-# Every setting can also be supplied as an environment variable of the same name;
-# the environment wins over the file.
+# Copy this to config.txt and fill it in. config.txt is gitignored so real
+# credentials stay out of the repo, and an environment variable with the same
+# name overrides any line here.
 
-# Twilio (https://console.twilio.com, on the account dashboard)
+# Twilio, from the account dashboard at https://console.twilio.com
 TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TWILIO_AUTH_TOKEN=your_auth_token
 TWILIO_PHONE_FROM=+15551234567
 PHONE_TO=+15557654321
 
-# Gmail API (https://console.cloud.google.com - enable the Gmail API, then
-# create an OAuth client ID of type "Desktop app" and download its JSON).
-# The scope must allow modify: the poller marks messages read after answering
-# them so it never replies to the same text twice.
+# Gmail. Turn on the Gmail API at https://console.cloud.google.com, then create an
+# OAuth client ID of type "Desktop app" and download its JSON. The scope has to
+# allow modify, as each message gets marked read once it's answered.
 GMAIL_SCOPE=https://www.googleapis.com/auth/gmail.modify
 GMAIL_CREDENTIALS_FILE=credentials.json
 GMAIL_TOKEN_FILE=token.json
 
-# Who is allowed to ask. Comma-separated addresses, or bare domains to accept any
-# address there. Your carrier's SMS-to-email gateway domain is the one you want.
-# Leave it empty and anything that lands in the label gets answered, and every
-# answer is a billed SMS you did not ask for.
+# Who can ask, as comma-separated addresses or bare domains. Your carrier's
+# SMS-to-email gateway domain is the one you want. Left empty, anything that
+# reaches the label gets an answer, and every answer is a billed SMS.
 ALLOWED_SENDERS=@txt.bell.ca,me@example.com
 
-# Optional
+# Optional, shown with their defaults. MAX_SMS_CHARS can go up to 1600, which is
+# as long as Twilio will send, and mail over the per-poll cap waits for the next poll.
 LABEL_NAME=Remote Server
 POLL_INTERVAL=5
 MAX_SMS_CHARS=300
-# Ceiling on texts sent per poll, so a burst of mail can't run up the Twilio bill.
-# Anything over the cap stays unread and goes out on the next poll.
 MAX_REPLIES_PER_POLL=10
