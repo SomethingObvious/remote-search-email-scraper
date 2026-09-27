@@ -1,6 +1,7 @@
 from conftest import DDG, WIKI_SEARCH, WIKI_SUMMARY, fake_web, load
 
 from remotesearch.lookup import (
+    WIKTIONARY,
     content_words,
     looks_relevant,
     source_dictionary,
@@ -113,22 +114,45 @@ def test_duckduckgo_prefers_a_direct_answer() -> None:
         assert source_duckduckgo("albedo") is None
 
 
-def test_dictionary_takes_two_senses() -> None:
-    entries = [
-        {
-            "meanings": [
-                {"partOfSpeech": "noun", "definitions": [{"definition": "Reflectivity."}]},
-                {"partOfSpeech": "verb", "definitions": [{"definition": "To reflect."}]},
-                {"partOfSpeech": "adjective", "definitions": [{"definition": "Unused."}]},
-            ]
-        }
-    ]
-    with fake_web({"https://api.dictionaryapi.dev/": entries}) as calls:
+def test_dictionary_reads_the_recorded_entry() -> None:
+    with fake_web({WIKTIONARY: load("wiktionary_portage.json")}) as calls:
+        assert source_dictionary("portage") == (
+            "(noun) An act of carrying, especially the carrying of a boat overland between two "
+            "waterways. (verb) To carry a boat overland."
+        )
+    assert [url for url, _ in calls] == [WIKTIONARY + "portage"]
+
+
+def test_dictionary_takes_two_senses_and_skips_empty_ones() -> None:
+    entry = {
+        "en": [
+            {
+                "partOfSpeech": "Noun",
+                "definitions": [{"definition": "<span></span>"}, {"definition": "Reflectivity."}],
+            },
+            {"partOfSpeech": "Verb", "definitions": [{"definition": "To reflect."}]},
+            {"partOfSpeech": "Adjective", "definitions": [{"definition": "Unused."}]},
+        ]
+    }
+    with fake_web({WIKTIONARY: entry}) as calls:
         assert source_dictionary("half life") == "(noun) Reflectivity. (verb) To reflect."
-    assert calls[0][0].endswith("/entries/en/half%20life")
-    # The API answers an unknown word with a 404, which comes through as None.
-    with fake_web({}):
+    assert [url for url, _ in calls] == [WIKTIONARY + "half%20life"]
+
+
+def test_dictionary_tries_a_capitalized_word_in_lower_case() -> None:
+    german = {"de": [{"partOfSpeech": "Noun", "definitions": [{"definition": "albedo"}]}]}
+    english = {"en": [{"partOfSpeech": "Noun", "definitions": [{"definition": "Reflectivity."}]}]}
+
+    def respond(url: str, _params: dict) -> dict:
+        return german if url.endswith("Albedo") else english
+
+    with fake_web({WIKTIONARY: respond}) as calls:
+        assert source_dictionary("Albedo") == "(noun) Reflectivity."
+    assert [url for url, _ in calls] == [WIKTIONARY + "Albedo", WIKTIONARY + "albedo"]
+    # Wiktionary answers a word it doesn't have with a 404, which comes through as None.
+    with fake_web({}) as calls:
         assert source_dictionary("zzqx") is None
+    assert len(calls) == 1
 
 
 def test_stackoverflow_reads_the_recorded_answer() -> None:

@@ -16,6 +16,7 @@ from unittest.mock import patch
 
 import ddgs
 import pytest
+from ddgs.exceptions import DDGSException
 
 from remotesearch import net, outdoors, places, search
 
@@ -42,11 +43,11 @@ ddgs.DDGS = _no_network  # type: ignore[misc, assignment]
 
 @pytest.fixture(autouse=True)
 def _fresh() -> Iterator[None]:
-    """Clear the per-run caches and the DuckDuckGo cooldown, and make every wait instant."""
+    """Clear the per-run caches and the search cooldowns, and make every wait instant."""
     places.geocode.cache_clear()
     places._nominatim.cache_clear()
     outdoors.tide_stations.cache_clear()
-    search._ddg_blocked_until = 0.0
+    search._resting.clear()
     net._last_call.clear()
     with patch("time.sleep"):
         yield
@@ -90,17 +91,25 @@ def fake_web(responses: dict[str, Response]) -> Iterator[list[tuple[str, dict[st
 
 
 class FakeDDGS:
-    """Stands in for ddgs.DDGS, handing back ``rows`` or raising each of ``errors`` in turn."""
+    """Stands in for ddgs.DDGS, handing back ``rows`` or raising each of ``errors`` in turn.
+
+    A backend in ``blocked`` fails every time, the way ddgs reports a block.
+    """
 
     rows: ClassVar[list[dict[str, str]]] = []
     errors: ClassVar[list[Exception]] = []
+    blocked: ClassVar[set[str]] = set()
     queries: ClassVar[list[str]] = []
+    backends: ClassVar[list[str]] = []
 
     def __init__(self, timeout: int | None = None) -> None:
         self.timeout = timeout
 
     def text(self, query: str, **kwargs: Any) -> list[dict[str, str]]:
         FakeDDGS.queries.append(query)
+        FakeDDGS.backends.append(kwargs["backend"])
+        if kwargs["backend"] in FakeDDGS.blocked:
+            raise DDGSException("No results found.")
         if FakeDDGS.errors:
             raise FakeDDGS.errors.pop(0)
         return copy.deepcopy(FakeDDGS.rows)
@@ -110,7 +119,9 @@ class FakeDDGS:
 def ddg() -> Iterator[type[FakeDDGS]]:
     FakeDDGS.rows = load("ddgs_boil_water.json")
     FakeDDGS.errors = []
+    FakeDDGS.blocked = set()
     FakeDDGS.queries = []
+    FakeDDGS.backends = []
     with patch("ddgs.DDGS", FakeDDGS):
         yield FakeDDGS
 

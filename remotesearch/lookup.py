@@ -1,4 +1,4 @@
-"""Reference lookups: DuckDuckGo's instant answers, Wikipedia, a dictionary and Stack Overflow."""
+"""Reference lookups: DuckDuckGo's instant answers, Wikipedia, Wiktionary and Stack Overflow."""
 
 import html
 import logging
@@ -10,9 +10,11 @@ import urllib.parse
 from bs4 import BeautifulSoup
 
 from . import net
-from .text import strip_refs
+from .text import inline_text, strip_refs
 
 logger = logging.getLogger("remotesearch")
+
+WIKTIONARY = "https://en.wiktionary.org/api/rest_v1/page/definition/"
 
 # Words that carry no topic, so they never count as evidence that a result matches.
 STOPWORDS = frozenset(
@@ -114,19 +116,22 @@ def source_wikipedia(query: str) -> str | None:
 
 
 def source_dictionary(word: str) -> str | None:
-    """First one or two senses from the free Dictionary API."""
-    entries = net.get_json(
-        f"https://api.dictionaryapi.dev/api/v2/entries/en/{urllib.parse.quote(word, safe='')}",
-        "the dictionary",
-    )
-    if not isinstance(entries, list) or not entries:
+    """The first sense of the first one or two parts of speech in Wiktionary's English entry."""
+    # Titles are case-sensitive, and "Albedo" only has a German entry, so a capitalized
+    # word gets a second try in lower case.
+    for term in dict.fromkeys((word, word.lower())):
+        found = net.get_json(WIKTIONARY + urllib.parse.quote(term, safe=""), "Wiktionary")
+        english = found.get("en") if isinstance(found, dict) else None
+        if english:
+            break
+    else:
         return None
     senses = []
-    for meaning in entries[0].get("meanings", [])[:2]:
-        definitions = meaning.get("definitions", [])
-        if definitions:
-            pos = meaning.get("partOfSpeech", "")
-            senses.append(f"({pos}) {definitions[0].get('definition', '')}".strip())
+    for entry in english[:2]:
+        glosses = (inline_text(d.get("definition", "")) for d in entry.get("definitions", []))
+        gloss = next((g for g in glosses if g), None)
+        if gloss:
+            senses.append(f"({entry.get('partOfSpeech', '').lower()}) {gloss}")
     return " ".join(senses) or None
 
 

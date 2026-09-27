@@ -171,6 +171,14 @@ class GmailInbox:
         self.sms_senders = sms_senders
         self.token_file = token_file
         self.dry_run = dry_run
+        self.seen: set[str] = set()  # what a dry run has handled, as it leaves mail unread
+
+    def mark_handled(self, ids: list[str]) -> None:
+        """Mark messages read so they're answered once, or remember them in a dry run."""
+        if self.dry_run:
+            self.seen.update(ids)
+        else:
+            mark_read(self.service, ids)
 
     def answers_by_sms(self, sender: str) -> bool:
         """Carrier gateways and REPLY_BY_SMS get a text to PHONE_TO, and other mail gets email."""
@@ -203,11 +211,13 @@ class GmailInbox:
 
     def fetch(self) -> Iterator[Incoming]:
         for msg_id in unread_ids(self.service, self.label_id):
+            if msg_id in self.seen:
+                continue
             try:
                 message = self.service.users().messages().get(userId="me", id=msg_id).execute()
                 # Marked read before the reply goes out. The other way round, a message
                 # that can't be marked gets answered (and billed) again on every poll.
-                mark_read(self.service, [msg_id])
+                self.mark_handled([msg_id])
                 incoming = self._incoming(msg_id, message)
             except RefreshError:
                 raise

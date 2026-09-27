@@ -8,8 +8,11 @@ DEFAULT_STATE_FILE = "remote-search-state.json"
 
 
 class State:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, dry_run: bool = False) -> None:
         self.path = path
+        # A dry run reads the file so it knows what's been answered, but what it
+        # handles itself is only kept in memory, and the file is left as it was.
+        self.dry_run = dry_run
         self.data: dict[str, Any] = {}
         if path.exists():
             try:
@@ -21,6 +24,8 @@ class State:
                 ) from None
 
     def save(self) -> None:
+        if self.dry_run:
+            return
         # Written beside the real file and swapped in, so a crash mid-write can't
         # leave half a file that fails to load on the next start.
         temp = self.path.with_name(self.path.name + ".tmp")

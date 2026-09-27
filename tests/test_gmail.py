@@ -315,6 +315,16 @@ def test_a_dry_run_logs_the_email_instead() -> None:
     assert service.sent == []
 
 
+def test_dry_run_answers_mail_once_unread() -> None:
+    service = FakeGmail({"m0": message("6045551234@txt.bell.ca"), "m1": message("a@txt.bell.ca")})
+    box = inbox(service, [], dry_run=True)
+    box.mark_handled(["m1"])  # what startup does with mail that was already waiting
+    assert [i.sender for i in box.fetch()] == ["6045551234@txt.bell.ca"]
+    assert list(box.fetch()) == []
+    assert service.marked_read == []
+    assert service.unread == ["m0", "m1"]
+
+
 # --- logging in ---------------------------------------------------------------
 def _gmail_config(tmp: str) -> dict[str, str]:
     secrets = Path(tmp) / "credentials.json"

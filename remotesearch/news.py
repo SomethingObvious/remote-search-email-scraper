@@ -1,6 +1,7 @@
 """Headlines from Google News and scores from ESPN's public scoreboards."""
 
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from typing import Any
@@ -13,20 +14,27 @@ from .net import SourceError
 logger = logging.getLogger("remotesearch")
 
 GOOGLE_NEWS = "https://news.google.com/rss"
-NEWS_REGION = {"hl": "en-CA", "gl": "CA", "ceid": "CA:en"}
+DEFAULT_NEWS_REGION = "CA"
 MAX_HEADLINES = 8
 
 
-def source_news(topic: str) -> str | None:
-    """Top Canadian headlines from Google News, or the latest on ``topic``."""
-    url, params = (
-        (f"{GOOGLE_NEWS}/search", {"q": topic, **NEWS_REGION})
-        if topic
-        else (
-            GOOGLE_NEWS,
-            NEWS_REGION,
+def news_edition(region: str) -> dict[str, str]:
+    """Google News's parameters for NEWS_REGION, a country code like GB, or CA:fr for French."""
+    country, _, language = region.partition(":")
+    country, language = country.strip().upper(), language.strip().lower() or "en"
+    if not re.fullmatch(r"[A-Z]{2}", country) or not re.fullmatch(r"[a-z]{2,3}", language):
+        raise SystemExit(
+            f"NEWS_REGION is {region!r}, which isn't a country code like CA, or CA:fr for "
+            "the news in French."
         )
-    )
+    return {"hl": f"{language}-{country}", "gl": country, "ceid": f"{country}:{language}"}
+
+
+def source_news(topic: str, edition: dict[str, str]) -> str | None:
+    """Top headlines from Google News's ``edition``, or the latest there on ``topic``."""
+    url, params = GOOGLE_NEWS, edition
+    if topic:
+        url, params = f"{GOOGLE_NEWS}/search", {"q": topic, **edition}
     feed = net.get_text(url, "Google News", params=params)
     if not feed:
         return None

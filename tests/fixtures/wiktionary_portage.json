@@ -1,0 +1,36 @@
+{
+ "en": [
+  {
+   "partOfSpeech": "Noun",
+   "language": "English",
+   "definitions": [
+    {
+     "definition": "An act of <a rel=\"mw:WikiLink\" href=\"/wiki/carrying\" title=\"carrying\">carrying</a>, especially the carrying of a <a rel=\"mw:WikiLink\" href=\"/wiki/boat\" title=\"boat\">boat</a> <a rel=\"mw:WikiLink\" href=\"/wiki/overland\" title=\"overland\">overland</a> between two <a rel=\"mw:WikiLink\" href=\"/wiki/waterway\" title=\"waterway\">waterways</a>."
+    },
+    {
+     "definition": "The <a rel=\"mw:WikiLink\" href=\"/wiki/route\" title=\"route\">route</a> used for such carrying."
+    }
+   ]
+  },
+  {
+   "partOfSpeech": "Verb",
+   "language": "English",
+   "definitions": [
+    {
+     "definition": "<span class=\"usage-label-sense\" about=\"#mwt33\" typeof=\"mw:Transclusion\"></span> To carry a boat overland."
+    }
+   ]
+  }
+ ],
+ "other": [
+  {
+   "partOfSpeech": "Noun",
+   "language": "Old French",
+   "definitions": [
+    {
+     "definition": "act of carrying a heavy load"
+    }
+   ]
+  }
+ ]
+}

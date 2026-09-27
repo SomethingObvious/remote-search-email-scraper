@@ -163,6 +163,23 @@ def test_texts_are_saved_before_replying(twilio: FakeMessages, state_path: Path)
     assert texts_in(inbox(twilio, state_path)) == []
 
 
+def test_a_dry_run_remembers_texts_without_saving_them(
+    twilio: FakeMessages, state_path: Path
+) -> None:
+    texts_in(inbox(twilio, state_path))
+    before = state_path.read_text(encoding="utf-8")
+    twilio.stored = [text_message("SM1", "sun Tofino")]
+    client = SimpleNamespace(messages=twilio)
+    box = TwilioInbox(
+        client, NUMBER, State(state_path, dry_run=True), make_texter(None, NUMBER), allowed={ME}
+    )
+    assert texts_in(box) == [(ME, "sun Tofino")]
+    assert texts_in(box) == []
+    assert state_path.read_text(encoding="utf-8") == before
+    # A real run afterwards still sees the text as new.
+    assert texts_in(inbox(twilio, state_path)) == [(ME, "sun Tofino")]
+
+
 def test_old_sids_are_dropped_from_the_state_file(twilio: FakeMessages, state_path: Path) -> None:
     state_path.write_text(
         json.dumps(

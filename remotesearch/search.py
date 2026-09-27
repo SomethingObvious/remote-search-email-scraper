@@ -1,24 +1,26 @@
-"""Web search through DuckDuckGo, or Brave when there's a key, and the site commands."""
+"""Web search through Brave when there's a key, then the engines the ddgs package scrapes."""
 
 import logging
-import re
 import time
 from dataclasses import dataclass
-
-from bs4 import BeautifulSoup
 
 from . import net
 from .lookup import looks_relevant
 from .net import SourceError
+from .text import inline_text
 
 logger = logging.getLogger("remotesearch")
 
-# Seconds to wait before each retry once DuckDuckGo stops answering. If it still
-# won't answer, it's left alone for 2 minutes instead of being asked again (and
-# blocked for longer) on every text in between.
-DDG_RETRY_WAITS = (2, 5)
-DDG_COOLDOWN = 120
-_ddg_blocked_until = 0.0
+# The ddgs backends, tried in this order. DuckDuckGo blocks automated searches after a
+# burst, and the others scrape result pages that block or change now and then too.
+# wikipedia and grokipedia are left out as they aren't web searches.
+BACKENDS = ("duckduckgo", "brave", "mojeek", "yahoo", "google", "startpage")
+# Seconds to wait before each retry once none of them answers. A backend that failed
+# is left alone for 2 minutes after that, instead of being asked again (and blocked
+# for longer) on every text in between.
+RETRY_WAITS = (2, 5)
+COOLDOWN = 120
+_resting: dict[str, float] = {}  # backend name to the time.monotonic() it can be asked again
 
 # Reddit's API is closed to personal apps and Quora has none, so these come from
 # searching the site. The answer is the thread title and the search snippet.
@@ -36,32 +38,35 @@ class Hit:
     url: str
 
 
-def duckduckgo(query: str) -> list[Hit]:
-    """Top five results from DuckDuckGo through the ddgs package."""
+def ddgs_search(query: str) -> list[Hit]:
+    """Top five results from the first ddgs backend that answers."""
     from ddgs import DDGS
     from ddgs.exceptions import DDGSException
 
-    global _ddg_blocked_until
-    if time.monotonic() < _ddg_blocked_until:
-        raise SourceError("DuckDuckGo", "it's limiting requests")
-    for wait in (0, *DDG_RETRY_WAITS):
+    down = SourceError("the web search", "it's limiting requests")
+    ready = [b for b in BACKENDS if _resting.get(b, 0) <= time.monotonic()]
+    if not ready:
+        raise down
+    for wait in (0, *RETRY_WAITS):
         time.sleep(wait)
-        try:
-            rows = DDGS(timeout=net.REQUEST_TIMEOUT).text(
-                query, region="ca-en", max_results=5, backend="duckduckgo"
-            )
-        except DDGSException as exc:
-            # ddgs reports a block as "No results found", since DuckDuckGo answers a
-            # blocked request with an empty page. A real search that finds nothing at
-            # all is rare enough that it's treated the same way.
-            logger.warning("DuckDuckGo search failed (%s)", exc)
-            continue
-        return [
-            Hit(str(r.get("title", "")), str(r.get("body", "")), str(r.get("href", "")))
-            for r in rows
-        ]
-    _ddg_blocked_until = time.monotonic() + DDG_COOLDOWN
-    raise SourceError("DuckDuckGo", "it's limiting requests")
+        for n, backend in enumerate(ready):
+            try:
+                rows = DDGS(timeout=net.REQUEST_TIMEOUT).text(
+                    query, region="ca-en", max_results=5, backend=backend
+                )
+            except DDGSException as exc:
+                # ddgs reports a block as "No results found", since a blocked request
+                # gets an empty page. A real search that finds nothing at all is rare
+                # enough that it's treated the same way.
+                logger.warning("The %s search failed (%s)", backend, exc)
+                continue
+            _resting.update(dict.fromkeys(ready[:n], time.monotonic() + COOLDOWN))
+            return [
+                Hit(str(r.get("title", "")), str(r.get("body", "")), str(r.get("href", "")))
+                for r in rows
+            ]
+    _resting.update(dict.fromkeys(ready, time.monotonic() + COOLDOWN))
+    raise down
 
 
 def brave(query: str, key: str) -> list[Hit]:
@@ -73,20 +78,22 @@ def brave(query: str, key: str) -> list[Hit]:
         headers={"Accept": "application/json", "X-Subscription-Token": key},
     )
     results = ((data or {}).get("web") or {}).get("results") or []
+    # Brave marks the matched words with <strong>, and those tags sit mid-sentence.
     return [
-        Hit(_inline(r.get("title", "")), _inline(r.get("description", "")), r["url"])
+        Hit(inline_text(r.get("title", "")), inline_text(r.get("description", "")), r["url"])
         for r in results
         if isinstance(r, dict) and r.get("url")
     ]
 
 
-def _inline(markup: str) -> str:
-    """Brave marks the matched words with <strong>, and those tags sit mid-sentence."""
-    return re.sub(r"\s+", " ", BeautifulSoup(markup, "html.parser").get_text()).strip()
-
-
 def web_results(query: str, brave_key: str = "") -> list[Hit]:
-    return brave(query, brave_key) if brave_key else duckduckgo(query)
+    """Brave's API when there's a key, and the ddgs backends without one or when it fails."""
+    if brave_key:
+        try:
+            return brave(query, brave_key)
+        except SourceError as exc:
+            logger.warning("Brave Search failed (%s), so trying the other engines", exc.why)
+    return ddgs_search(query)
 
 
 def site_query(site: str, query: str) -> str:

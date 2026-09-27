@@ -27,7 +27,6 @@ from .gmail import (
     GmailInbox,
     authenticate_gmail,
     get_label_id,
-    mark_read,
     unread_ids,
 )
 from .router import DEFAULT_SMS_CHARS, ONLINE_TEXT, Answerer, Incoming, Responder, answer
@@ -188,12 +187,7 @@ def gmail_inbox(
         )
     phone = config.get("PHONE_TO", "")
     text_phone = partial(text, phone)
-    if not args.catch_up and not args.once:
-        mark_read(service, unread_ids(service, label_id))
-        if phone:
-            text_phone(ONLINE_TEXT)
-    logger.info("Checking the %r Gmail label", label_name)
-    return GmailInbox(
+    inbox = GmailInbox(
         service,
         label_id,
         text_phone,
@@ -202,6 +196,12 @@ def gmail_inbox(
         token_file=config["GMAIL_TOKEN_FILE"],
         dry_run=args.dry_run,
     )
+    if not args.catch_up and not args.once:
+        inbox.mark_handled(unread_ids(service, label_id))
+        if phone:
+            text_phone(ONLINE_TEXT)
+    logger.info("Checking the %r Gmail label", label_name)
+    return inbox
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -250,7 +250,7 @@ def main(argv: list[str] | None = None) -> None:
 
     client: Any = twilio_client(config) if use_twilio or not args.dry_run else None
     text = make_texter(None if args.dry_run else client, config.get("TWILIO_PHONE_FROM", ""))
-    state = State(Path(config.get("STATE_FILE") or DEFAULT_STATE_FILE))
+    state = State(Path(config.get("STATE_FILE") or DEFAULT_STATE_FILE), dry_run=args.dry_run)
     responder = Responder(Answerer(config, limit), state, limit)
     # Dry runs send nothing, so they don't use up the hour's replies.
     hourly = None if args.dry_run else HourlyCap(state, per_hour)

@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 import pytest
 from conftest import DDG, OPEN_METEO, OPEN_METEO_GEOCODE, WIKI_SEARCH, fake_web, fixture_text, load
-from ddgs.exceptions import DDGSException
 
 from remotesearch import ai
 from remotesearch.net import SourceError
@@ -16,18 +15,17 @@ from remotesearch.router import (
     Responder,
     answer,
 )
+from remotesearch.search import BACKENDS
 from remotesearch.state import State
 from remotesearch.text import GSM7_BASIC, GSM7_EXTENSION, MAX_QUERY_CHARS, MORE, sms_segments
 
-DICTIONARY = "https://api.dictionaryapi.dev/"
-ALBEDO = [
-    {
-        "meanings": [
-            {"partOfSpeech": "noun", "definitions": [{"definition": "Reflectivity."}]},
-            {"partOfSpeech": "verb", "definitions": [{"definition": "To reflect."}]},
-        ]
-    }
-]
+DICTIONARY = "https://en.wiktionary.org/"
+ALBEDO = {
+    "en": [
+        {"partOfSpeech": "Noun", "definitions": [{"definition": "Reflectivity."}]},
+        {"partOfSpeech": "Verb", "definitions": [{"definition": "To reflect."}]},
+    ]
+}
 AI_CONFIG = {"AI_API_KEY": "sk-proj-abc"}
 
 
@@ -142,10 +140,10 @@ def test_a_command_whose_source_is_down_says_so() -> None:
         assert answer("road hwy 99") == (
             "DriveBC isn't answering right now (it timed out). Try again in a few minutes."
         )
-    with fake_web({DICTIONARY: SourceError("the dictionary", "it answered with error 522")}):
+    with fake_web({DICTIONARY: SourceError("Wiktionary", "it answered with error 522")}):
         assert answer("define albedo") == (
-            "The dictionary isn't answering right now (it answered with error 522). Try again "
-            "in a few minutes."
+            "Wiktionary isn't answering right now (it answered with error 522). Try again in a "
+            "few minutes."
         )
 
 
@@ -170,16 +168,16 @@ def test_web_prefers_the_instant_answer(ddg) -> None:
 
 
 def test_web_says_when_the_search_is_down(ddg) -> None:
-    ddg.errors = [DDGSException("No results found.")] * 3
+    ddg.blocked = set(BACKENDS)
     with fake_web({}):
         assert answer("how long to boil water") == (
-            "DuckDuckGo isn't answering right now (it's limiting requests). Try again in a few "
-            "minutes."
+            "The web search isn't answering right now (it's limiting requests). Try again in a "
+            "few minutes."
         )
 
 
 def test_wikipedia_answers_while_search_is_down(ddg) -> None:
-    ddg.errors = [DDGSException("No results found.")] * 3
+    ddg.blocked = set(BACKENDS)
     responses = {
         WIKI_SEARCH: load("wikipedia_search.json"),
         "https://en.wikipedia.org/api/": load("wikipedia_summary.json"),

@@ -7,13 +7,13 @@ from ddgs.exceptions import DDGSException, RatelimitException
 
 from remotesearch import search
 from remotesearch.net import SourceError
-from remotesearch.search import Hit, brave, duckduckgo, snippet_answer, web_results
+from remotesearch.search import Hit, brave, ddgs_search, snippet_answer, web_results
 
 BRAVE = "https://api.search.brave.com/res/v1/web/search"
 
 
-def test_duckduckgo_turns_ddgs_rows_into_hits(ddg) -> None:
-    hits = duckduckgo("how long to boil water")
+def test_ddgs_search_turns_rows_into_hits(ddg) -> None:
+    hits = ddgs_search("how long to boil water")
     assert hits[0] == Hit(
         "How Long to Boil Water to Purify for Drinking (According to Science)",
         "Whether you're hiking or camping this summer, safe water is pretty important. In this "
@@ -24,32 +24,40 @@ def test_duckduckgo_turns_ddgs_rows_into_hits(ddg) -> None:
     )
     assert len(hits) == 3
     assert ddg.queries == ["how long to boil water"]
+    assert ddg.backends == ["duckduckgo"]
 
 
-def test_duckduckgo_backs_off_then_gives_up(ddg) -> None:
-    ddg.errors = [DDGSException("No results found."), RatelimitException("202")] * 2
+def test_blocked_duckduckgo_falls_back(ddg) -> None:
+    ddg.blocked = {"duckduckgo"}
+    ddg.errors = [RatelimitException("202")]  # and Brave's result page turns it away once
+    assert len(ddgs_search("first")) == 3
+    assert ddg.backends == ["duckduckgo", "brave", "mojeek"]
+    # The two that failed are left alone for a while instead of being asked on every text.
+    assert len(ddgs_search("second")) == 3
+    assert ddg.backends[3:] == ["mojeek"]
+    search._resting.update(dict.fromkeys(search._resting, time.monotonic() - 1))
+    ddg.blocked = set()
+    ddgs_search("third")
+    assert ddg.backends[4:] == ["duckduckgo"]
+
+
+def test_every_engine_failing_backs_off_then_gives_up(ddg) -> None:
+    ddg.blocked = set(search.BACKENDS)
     with patch("time.sleep") as sleep, pytest.raises(SourceError) as caught:
-        duckduckgo("boil water")
+        ddgs_search("boil water")
     assert [c.args[0] for c in sleep.call_args_list] == [0, 2, 5]
-    assert (caught.value.name, caught.value.why) == ("DuckDuckGo", "it's limiting requests")
-    assert len(ddg.queries) == 3
-
-
-def test_duckduckgo_recovers_on_a_retry(ddg) -> None:
-    ddg.errors = [DDGSException("No results found.")]
-    assert len(duckduckgo("boil water")) == 3
-    assert len(ddg.queries) == 2
-
-
-def test_duckduckgo_cools_down_after_a_block(ddg) -> None:
-    ddg.errors = [DDGSException("No results found.")] * 3
+    assert (caught.value.name, caught.value.why) == ("the web search", "it's limiting requests")
+    assert ddg.backends == list(search.BACKENDS) * 3
     with pytest.raises(SourceError):
-        duckduckgo("first")
-    with pytest.raises(SourceError):
-        duckduckgo("second")  # refused straight away, without asking again
-    assert ddg.queries == ["first"] * 3
-    search._ddg_blocked_until = time.monotonic() - 1
-    assert len(duckduckgo("third")) == 3
+        ddgs_search("second")  # refused straight away, without asking again
+    assert len(ddg.queries) == 3 * len(search.BACKENDS)
+
+
+def test_ddgs_search_recovers_on_a_retry(ddg) -> None:
+    ddg.errors = [DDGSException("No results found.")] * len(search.BACKENDS)
+    assert len(ddgs_search("boil water")) == 3
+    assert ddg.backends == [*search.BACKENDS, "duckduckgo"]
+    assert search._resting == {}  # DuckDuckGo answered in the end, so nothing sits out
 
 
 def test_brave_reads_the_results() -> None:
@@ -91,6 +99,13 @@ def test_web_results_uses_brave_only_with_a_key(ddg) -> None:
         assert web_results("boil water", "BSAkey")[0].url.startswith("https://www.cdc.gov/")
     assert ddg.queries == []
     assert web_results("boil water")[0].url == "https://storyteller.travel/how-long-to-boil-water/"
+
+
+def test_web_results_falls_back_when_brave_fails(ddg) -> None:
+    with fake_web({BRAVE: SourceError("Brave Search", "it's limiting requests")}):
+        hits = web_results("boil water", "BSAkey")
+    assert hits[0].url == "https://storyteller.travel/how-long-to-boil-water/"
+    assert ddg.backends == ["duckduckgo"]
 
 
 def test_snippet_answer_needs_a_relevant_hit() -> None:

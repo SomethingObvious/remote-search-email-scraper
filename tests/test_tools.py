@@ -5,7 +5,7 @@ import pytest
 from conftest import OPEN_METEO_GEOCODE, fake_web, fixture_text, load
 
 from remotesearch.net import SourceError
-from remotesearch.news import game_line, source_news, source_scores
+from remotesearch.news import game_line, news_edition, source_news, source_scores
 from remotesearch.places import source_business, source_time
 from remotesearch.tools import (
     CalcError,
@@ -19,6 +19,7 @@ from remotesearch.tools import (
 ESPN = "https://site.api.espn.com/"
 NOMINATIM = "https://nominatim.openstreetmap.org/"
 NEWS = "https://news.google.com/rss"
+CANADA = {"hl": "en-CA", "gl": "CA", "ceid": "CA:en"}
 
 
 @pytest.mark.parametrize(
@@ -193,29 +194,33 @@ def test_business_waits_a_second_between_nominatim_calls() -> None:
 
 def test_news_reads_the_recorded_feed() -> None:
     with fake_web({NEWS: fixture_text("google_news_wildfire.xml")}) as calls:
-        reply = source_news("wildfire BC")
+        reply = source_news("wildfire BC", CANADA)
     assert reply == (
         "1) \N{LEFT SINGLE QUOTATION MARK}God cleaned the slate\N{RIGHT SINGLE QUOTATION MARK}: "
         "Ashes pave the road to recovery after B.C. wildfires - Global News. 2) LETTER: BC "
         "Wildfire Service leadership questioned - Kelowna Capital News. 3) Growing wildfire "
         "burning out of control on Vancouver Island - CTV News."
     )
-    assert calls == [
-        (
-            "https://news.google.com/rss/search",
-            {"q": "wildfire BC", "hl": "en-CA", "gl": "CA", "ceid": "CA:en"},
-        )
-    ]
+    assert calls == [("https://news.google.com/rss/search", {"q": "wildfire BC", **CANADA})]
     with fake_web({NEWS: fixture_text("google_news_wildfire.xml")}) as calls:
-        source_news("")
-    assert calls[0] == ("https://news.google.com/rss", {"hl": "en-CA", "gl": "CA", "ceid": "CA:en"})
+        source_news("", CANADA)
+    assert calls[0] == ("https://news.google.com/rss", CANADA)
 
 
 def test_news_with_a_broken_or_empty_feed() -> None:
     with fake_web({NEWS: "<rss><channel><item><title>cut off"}), pytest.raises(SourceError):
-        source_news("x")
+        source_news("x", CANADA)
     with fake_web({NEWS: "<rss><channel></channel></rss>"}):
-        assert source_news("x") is None
+        assert source_news("x", CANADA) is None
+
+
+def test_news_edition_reads_news_region() -> None:
+    assert news_edition("CA") == CANADA
+    assert news_edition(" gb ") == {"hl": "en-GB", "gl": "GB", "ceid": "GB:en"}
+    assert news_edition("CA:fr") == {"hl": "fr-CA", "gl": "CA", "ceid": "CA:fr"}
+    for bad in ("Canada", "en-CA", "C:fr", "CA:french"):
+        with pytest.raises(SystemExit, match=f"NEWS_REGION is {bad!r}"):
+            news_edition(bad)
 
 
 def boards(url: str, params: dict) -> dict:

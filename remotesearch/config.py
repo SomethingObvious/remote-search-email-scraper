@@ -18,6 +18,7 @@ OPTIONAL_KEYS = (
     "REPLY_BY_SMS",
     "STATE_FILE",
     "BRAVE_API_KEY",
+    "NEWS_REGION",
     "AI_API_KEY",
     "AI_PROVIDER",
     "AI_MODEL",

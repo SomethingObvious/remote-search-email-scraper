@@ -21,10 +21,8 @@ from remotesearch.cli import HourlyCap, main, monitor, process_once
 from remotesearch.router import HELP_TEXT, ONLINE_TEXT, Answerer, Incoming, Responder
 from remotesearch.state import State
 
-DICTIONARY = "https://api.dictionaryapi.dev/"
-ALBEDO = [
-    {"meanings": [{"partOfSpeech": "noun", "definitions": [{"definition": "Reflectivity."}]}]}
-]
+DICTIONARY = "https://en.wiktionary.org/"
+ALBEDO = {"en": [{"partOfSpeech": "Noun", "definitions": [{"definition": "Reflectivity."}]}]}
 TWILIO = {
     "TWILIO_ACCOUNT_SID": "ACtest",
     "TWILIO_AUTH_TOKEN": "token",
@@ -77,10 +75,56 @@ def test_gmail_dry_run_needs_no_twilio_settings() -> None:
     ):
         main(["--config", str(path), "--dry-run", "--once"])
     assert not client.called
-    assert service.marked_read == ["m0"]
+    assert service.marked_read == []
     log.info.assert_called_with(
         "Dry run, so not texting %s: %s", "PHONE_TO", "define: (noun) Reflectivity."
     )
+
+
+def dry_run_settings() -> dict[str, str]:
+    return {
+        "GMAIL_CREDENTIALS_FILE": "c.json",
+        "GMAIL_TOKEN_FILE": "t.json",
+        "ALLOWED_SENDERS": "@txt.bell.ca,+16045551234",
+        **TWILIO,
+    }
+
+
+def dry_run(service: FakeGmail, messages: FakeMessages, *flags: str) -> tuple[list[Any], bool]:
+    """Poll twice with --dry-run, returning what it would have texted and whether it saved state."""
+    with (
+        config_file(dry_run_settings()) as path,
+        patch("remotesearch.cli.authenticate_gmail", return_value=service),
+        patch("remotesearch.cli.twilio_client", return_value=fake_client(messages)),
+        patch("remotesearch.twilio_sms.logger") as log,
+        patch("remotesearch.cli.sleep", side_effect=[None, KeyboardInterrupt]),
+        fake_web({DICTIONARY: ALBEDO}),
+    ):
+        main(["--config", str(path), "--dry-run", *flags])
+        saved = path.with_name("state.json").exists()
+    texted = [c.args[1:] for c in log.info.call_args_list if c.args[0].startswith("Dry run")]
+    return texted, saved
+
+
+def test_dry_run_answers_once_and_saves_nothing() -> None:
+    service = FakeGmail({"m0": message("5551234567@txt.bell.ca", "define albedo")})
+    messages = FakeMessages()
+    messages.stored = [text_message("SM1", "help")]
+    texted, saved = dry_run(service, messages, "--catch-up")
+    assert texted == [("PHONE_TO", "define: (noun) Reflectivity."), ("+16045551234", HELP_TEXT)]
+    assert service.marked_read == []
+    assert messages.created == []
+    assert saved is False
+
+
+def test_dry_run_skips_the_backlog_unread() -> None:
+    service = FakeGmail({"m0": message("5551234567@txt.bell.ca", "define albedo")})
+    messages = FakeMessages()
+    messages.stored = [text_message("SM1", "help")]
+    texted, saved = dry_run(service, messages)
+    assert texted == []
+    assert service.marked_read == []
+    assert saved is False
 
 
 def test_gmail_startup_clears_the_backlog() -> None:

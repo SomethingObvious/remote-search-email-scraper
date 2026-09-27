@@ -17,7 +17,7 @@ from .lookup import (
     words,
 )
 from .net import SourceError
-from .news import source_news, source_scores
+from .news import DEFAULT_NEWS_REGION, news_edition, source_news, source_scores
 from .outdoors import (
     source_avalanche,
     source_drive,
@@ -100,6 +100,7 @@ class Answerer:
     def __init__(self, config: dict[str, str] | None = None, limit: int = DEFAULT_SMS_CHARS):
         config = config or {}
         self.brave_key = config.get("BRAVE_API_KEY", "")
+        self.news_edition = news_edition(config.get("NEWS_REGION") or DEFAULT_NEWS_REGION)
         self.model = ai.model_from_config(config)
         self.limit = limit
         self.commands = self._commands()
@@ -182,9 +183,8 @@ class Answerer:
             ),
             Command(
                 ("news",),
-                source_news,
-                "news: the top Canadian headlines from Google News. news <topic>: the latest "
-                "on that topic.",
+                lambda topic: source_news(topic, self.news_edition),
+                "news: the top headlines from Google News. news <topic>: the latest on that topic.",
                 loose=True,
                 bare=True,
             ),
@@ -205,7 +205,7 @@ class Answerer:
             Command(
                 ("define", "def", "dict"),
                 source_dictionary,
-                "define <word>: the first meanings from the Free Dictionary API.",
+                "define <word>: the first meanings from Wiktionary.",
             ),
             Command(
                 ("wiki",),

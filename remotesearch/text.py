@@ -26,6 +26,11 @@ def html_to_text(markup: str) -> str:
     return clean_query(BeautifulSoup(markup, "html.parser").get_text("\n"))
 
 
+def inline_text(markup: str) -> str:
+    """The text of an HTML snippet whose tags sit mid-sentence, with nothing added between them."""
+    return re.sub(r"\s+", " ", BeautifulSoup(markup, "html.parser").get_text()).strip()
+
+
 def strip_refs(text: str) -> str:
     """Remove reference markers like [2] or [note] from prose."""
     return re.sub(r"\[[A-Za-z0-9]+\]", "", text).strip()

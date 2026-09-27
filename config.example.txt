@@ -36,12 +36,16 @@ AI_PROVIDER=
 AI_MODEL=
 AI_BASE_URL=
 
-# Optional. With a key the web search uses the Brave Search API instead of DuckDuckGo.
+# Optional. With a key the web search asks the Brave Search API first, and only goes
+# to DuckDuckGo and the other free engines when Brave fails.
 BRAVE_API_KEY=
 
 # Optional, shown with their defaults. MAX_SMS_CHARS can go up to 1600, which is
 # as long as Twilio will send. Past either reply cap, questions wait for a later
 # poll, and the hourly count is kept in STATE_FILE so a restart doesn't reset it.
+# NEWS_REGION picks the Google News edition by country code, in English unless it
+# names a language, as in CA:fr for the French edition in Canada.
+NEWS_REGION=CA
 LABEL_NAME=Remote Server
 POLL_INTERVAL=5
 MAX_SMS_CHARS=300
