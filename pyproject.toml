@@ -1,7 +1,7 @@
 [project]
 name = "remote-search"
-version = "3.1.0"
-description = "Answer questions texted from a phone with no data, over SMS"
+version = "4.0.0"
+description = "Answer questions texted from a phone with no data, over SMS or email"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -9,6 +9,9 @@ license = "MIT"
 dependencies = [
   "requests>=2.32",
   "beautifulsoup4>=4.12",
+  "ddgs>=9.0",
+  # zoneinfo needs this on Windows, which has no time zone database of its own.
+  "tzdata; sys_platform == 'win32'",
   # The Gmail and Twilio clients are only imported by the poller, so --query starts fast.
   "google-auth>=2.0",
   "google-auth-oauthlib>=1.0",
@@ -16,8 +19,11 @@ dependencies = [
   "twilio>=9.0",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.10"]
+
 [project.scripts]
-remote-search = "RemoteSearch:main"
+remote-search = "remotesearch.cli:main"
 
 [build-system]
 # 77 is the first setuptools that reads a plain SPDX string in `license`.
@@ -25,7 +31,11 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
+packages = ["remotesearch"]
 py-modules = ["RemoteSearch"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
@@ -36,7 +46,7 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RET", "PIE", "PT", "
 ignore = ["S101"]
 
 [tool.ruff.lint.per-file-ignores]
-"test*.py" = ["S", "ARG", "PT"]
+"tests/*.py" = ["S", "ARG", "PT"]
 
 [tool.ruff.format]
 quote-style = "double"

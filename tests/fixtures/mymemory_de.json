@@ -1,0 +1,33 @@
+{
+ "responseData": {
+  "translatedText": "Wo ist der Bahnhof",
+  "match": 0.85,
+  "detectedLanguage": "en"
+ },
+ "quotaFinished": false,
+ "mtLangSupported": null,
+ "responseDetails": "",
+ "responseStatus": 200,
+ "responderId": null,
+ "exception_code": null,
+ "matches": [
+  {
+   "id": 0,
+   "segment": "Where is the train station",
+   "translation": "Wo ist der Bahnhof",
+   "source": false,
+   "target": "de-DE",
+   "quality": 70,
+   "reference": "Machine Translation.",
+   "usage-count": 2,
+   "subject": false,
+   "created-by": "MT!",
+   "last-updated-by": "MT!",
+   "create-date": "2026-09-27 17:17:31",
+   "last-update-date": "2026-09-27 17:17:31",
+   "match": 0.85,
+   "penalty": null,
+   "model": "neural"
+  }
+ ]
+}

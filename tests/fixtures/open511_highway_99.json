@@ -1,0 +1,123 @@
+{
+ "events": [
+  {
+   "jurisdiction_url": "https://api.open511.gov.bc.ca/jurisdiction",
+   "url": "https://api.open511.gov.bc.ca/events/drivebc.ca/RIDE-101622",
+   "id": "drivebc.ca/RIDE-101622",
+   "headline": "CONSTRUCTION",
+   "status": "ACTIVE",
+   "created": "2026-08-24T11:15:12-07:00",
+   "updated": "2026-09-25T14:25:46-07:00",
+   "description": "Utility work from Highway 99, In Vancouver and W 70th Ave to In Vancouver and W 71 Ave. Starting Mon Aug 24 until Sat Oct 31. From 9:30 AM to 3:00 PM PDT, Monday to Thursday. Right lane closed. Last update: September 25th, 2026 at 2:25pm PDT.",
+   "+ivr_message": "Utility work from Highway 99, In Vancouver and W 70th Ave to In Vancouver and W 71 Ave. Starting Mon Aug 24 until Sat Oct 31. From 9:30 AM to 3:00 PM PDT, Monday to Thursday. Right lane closed. Last update: September 25th, 2026 at 2:25pm PDT.",
+   "+linear_reference_km": 0,
+   "schedule": {
+    "intervals": [
+     "2026-08-24T16:30/2026-10-31T22:00"
+    ]
+   },
+   "event_type": "CONSTRUCTION",
+   "event_subtypes": [
+    "ROAD_MAINTENANCE"
+   ],
+   "severity": "MINOR",
+   "roads": [
+    {
+     "name": "Highway 99",
+     "from": "Oak Street",
+     "direction": "N",
+     "state": "ALL_LANES_OPEN"
+    }
+   ],
+   "areas": [
+    {
+     "url": "http://www.geonames.org/8630136",
+     "name": "Lower Mainland District",
+     "id": "drivebc.ca/1"
+    }
+   ]
+  },
+  {
+   "jurisdiction_url": "https://api.open511.gov.bc.ca/jurisdiction",
+   "url": "https://api.open511.gov.bc.ca/events/drivebc.ca/RIDE-102838",
+   "id": "drivebc.ca/RIDE-102838",
+   "headline": "CONSTRUCTION",
+   "status": "ACTIVE",
+   "created": "2026-09-25T14:34:50-07:00",
+   "updated": "2026-09-25T14:34:50-07:00",
+   "description": "Ditch maintenance from Highway 99, 413m Southeast of 90 Kilometre Post to At Brunswick North Bridge. Starting Thu Oct 1 until Thu Oct 1. Right lane blocked. Last update: September 25th, 2026 at 2:34pm PDT.",
+   "+ivr_message": "Ditch maintenance from Highway 99, 413m Southeast of 90 Kilometre Post to At Brunswick North Bridge. Starting Thu Oct 1 until Thu Oct 1. Right lane blocked. Last update: September 25th, 2026 at 2:34pm PDT.",
+   "+linear_reference_km": 0,
+   "schedule": {
+    "intervals": [
+     "2026-10-01T14:30/2026-10-02T00:30"
+    ]
+   },
+   "event_type": "CONSTRUCTION",
+   "event_subtypes": [
+    "ROAD_MAINTENANCE"
+   ],
+   "severity": "MINOR",
+   "roads": [
+    {
+     "name": "Highway 99",
+     "from": "Highway 99",
+     "direction": "N",
+     "state": "ALL_LANES_OPEN"
+    }
+   ],
+   "areas": [
+    {
+     "url": "http://www.geonames.org/8630136",
+     "name": "Lower Mainland District",
+     "id": "drivebc.ca/1"
+    }
+   ]
+  },
+  {
+   "jurisdiction_url": "https://api.open511.gov.bc.ca/jurisdiction",
+   "url": "https://api.open511.gov.bc.ca/events/drivebc.ca/RIDE-102837",
+   "id": "drivebc.ca/RIDE-102837",
+   "headline": "CONSTRUCTION",
+   "status": "ACTIVE",
+   "created": "2026-09-25T14:30:06-07:00",
+   "updated": "2026-09-25T14:30:06-07:00",
+   "description": "Mowing from Highway 99, In Whistler and At Alpha Lake Road to In Squamish and 453m North of Squamish Nation Ped Overpass. Starting Mon Sep 28 until Fri Oct 2. From 7:30 AM to 3:30 PM PDT, weekdays. Shoulder closed. Last update: September 25th, 2026 at 2:30pm PDT. Slow moving vehicle operations. No work scheduled on Sept 30th.",
+   "+ivr_message": "Mowing from Highway 99, In Whistler and At Alpha Lake Road to In Squamish and 453m North of Squamish Nation Ped Overpass. Starting Mon Sep 28 until Fri Oct 2. From 7:30 AM to 3:30 PM PDT, weekdays. Shoulder closed. Last update: September 25th, 2026 at 2:30pm PDT. Slow moving vehicle operations. No work scheduled on Sept 30th.",
+   "+linear_reference_km": 0,
+   "schedule": {
+    "intervals": [
+     "2026-09-28T14:30/2026-10-02T22:30"
+    ]
+   },
+   "event_type": "CONSTRUCTION",
+   "event_subtypes": [
+    "ROAD_CONSTRUCTION"
+   ],
+   "severity": "MINOR",
+   "roads": [
+    {
+     "name": "Highway 99",
+     "from": "Highway 99",
+     "direction": "BOTH",
+     "state": "ALL_LANES_OPEN"
+    }
+   ],
+   "areas": [
+    {
+     "url": "http://www.geonames.org/8630136",
+     "name": "Lower Mainland District",
+     "id": "drivebc.ca/1"
+    }
+   ]
+  }
+ ],
+ "pagination": {
+  "offset": "0"
+ },
+ "meta": {
+  "url": "/events",
+  "up_url": "",
+  "version": "v1"
+ }
+}

@@ -1,0 +1,20 @@
+{
+ "type": "search",
+ "query": {"original": "how long to boil water to purify it"},
+ "web": {
+  "type": "search",
+  "results": [
+   {
+    "title": "Making Water Safe in an Emergency | <strong>Water</strong>, Sanitation, and Environmentally Related Hygiene",
+    "url": "https://www.cdc.gov/water-emergency/about/index.html",
+    "description": "<strong>Boil</strong> water for 1 minute. At elevations above 6,500 feet, <strong>boil</strong> water for 3 minutes.",
+    "extra_snippets": ["Let the boiled water cool."]
+   },
+   {
+    "title": "Boil water advisory",
+    "url": "https://www.canada.ca/en/health-canada/services/environmental-workplace-health/water-quality/drinking-water/boil-water-advisory.html",
+    "description": "Bring water to a rolling <strong>boil</strong> for at least one minute."
+   }
+  ]
+ }
+}

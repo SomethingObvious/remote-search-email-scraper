@@ -1,0 +1,24 @@
+{
+ "results": [
+  {
+   "id": 6354950,
+   "name": "Tofino",
+   "latitude": 49.15314,
+   "longitude": -125.90744,
+   "elevation": 10.0,
+   "feature_code": "PPL",
+   "country_code": "CA",
+   "admin1_id": 5909050,
+   "admin2_id": 6119125,
+   "admin3_id": 6167255,
+   "timezone": "America/Vancouver",
+   "population": 2516,
+   "country_id": 6251999,
+   "country": "Canada",
+   "admin1": "British Columbia",
+   "admin2": "Regional District of Alberni-Clayoquot",
+   "admin3": "Tofino"
+  }
+ ],
+ "generationtime_ms": 0.34832954
+}

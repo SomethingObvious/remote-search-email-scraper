@@ -1,0 +1,40 @@
+{
+ "code": "Ok",
+ "routes": [
+  {
+   "legs": [
+    {
+     "steps": [],
+     "weight": 54932.5,
+     "summary": "",
+     "duration": 50152.9,
+     "distance": 932637.4
+    }
+   ],
+   "weight_name": "routability",
+   "weight": 54932.5,
+   "duration": 50152.9,
+   "distance": 932637.4
+  }
+ ],
+ "waypoints": [
+  {
+   "hint": "M-_2gTbv9oEAAAAACQEAAAAAAAC1AQAAAAAAALMjE0IAAAAAGOVyQgAAAAAJAQAAAAAAALUBAAB6JwEAHD5g_3m_GwPEU6n4jP7vAgAATwcAAAAA",
+   "location": [
+    -10.46986,
+    52.150137
+   ],
+   "name": "",
+   "distance": 7960873.97
+  },
+  {
+   "hint": "25R_gP___38CAAAACwAAACUAAAAGAAAAJEX2P89Ku0CILUdBBkuRQAIAAAALAAAAJQAAAAYAAAB6JwEAlA3-__rvEQOQDf7_APARAwYAjw8AAAAA",
+   "location": [
+    -0.127596,
+    51.507194
+   ],
+   "name": "King Charles I Island",
+   "distance": 0.7229731473
+  }
+ ]
+}

@@ -1,0 +1,27 @@
+{
+ "latitude": 49.135384,
+ "longitude": -125.89173,
+ "generationtime_ms": 1.8135309219360352,
+ "utc_offset_seconds": -25200,
+ "timezone": "America/Vancouver",
+ "timezone_abbreviation": "GMT-7",
+ "elevation": 18.0,
+ "current_units": {
+  "time": "iso8601",
+  "interval": "seconds",
+  "temperature_2m": "°C",
+  "apparent_temperature": "°C",
+  "relative_humidity_2m": "%",
+  "wind_speed_10m": "km/h",
+  "weather_code": "wmo code"
+ },
+ "current": {
+  "time": "2026-09-27T10:15",
+  "interval": 900,
+  "temperature_2m": 11.5,
+  "apparent_temperature": 10.7,
+  "relative_humidity_2m": 78,
+  "wind_speed_10m": 1.3,
+  "weather_code": 0
+ }
+}

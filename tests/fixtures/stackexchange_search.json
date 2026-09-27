@@ -1,0 +1,28 @@
+{
+ "items": [
+  {
+   "tags": [
+    "python",
+    "iterator",
+    "generator",
+    "yield"
+   ],
+   "is_answered": true,
+   "view_count": 3499866,
+   "protected_date": 1360547307,
+   "accepted_answer_id": 231855,
+   "answer_count": 51,
+   "score": 13135,
+   "last_activity_date": 1777574627,
+   "creation_date": 1224800471,
+   "last_edit_date": 1711253482,
+   "question_id": 231767,
+   "content_license": "CC BY-SA 4.0",
+   "link": "https://stackoverflow.com/questions/231767/what-does-the-yield-keyword-do-in-python",
+   "title": "What does the &quot;yield&quot; keyword do in Python?"
+  }
+ ],
+ "has_more": true,
+ "quota_max": 300,
+ "quota_remaining": 297
+}

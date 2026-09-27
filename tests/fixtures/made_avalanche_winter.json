@@ -1,0 +1,155 @@
+{
+ "id": "8f183111-74b5-4900-9cb6-f8326c1ed97b_53bb614cadbd487077d867dec6007dfed090d20fbc0cbfe941451b6af2df33ed",
+ "slug": "8f183111-74b5-4900-9cb6-f8326c1ed97b_53bb614cadbd487077d867dec6007dfed090d20fbc0cbfe941451b6af2df33ed",
+ "url": "https://avalanche.ca/forecasts/8f183111-74b5-4900-9cb6-f8326c1ed97b_53bb614cadbd487077d867dec6007dfed090d20fbc0cbfe941451b6af2df33ed",
+ "type": "avalancheforecast",
+ "area": {
+  "id": "53bb614cadbd487077d867dec6007dfed090d20fbc0cbfe941451b6af2df33ed",
+  "name": "Sea To Sky",
+  "bbox": null
+ },
+ "report": {
+  "id": "8f183111-74b5-4900-9cb6-f8326c1ed97b_53bb614cadbd487077d867dec6007dfed090d20fbc0cbfe941451b6af2df33ed",
+  "forecaster": "Avalanche Canada",
+  "dateIssued": "2026-06-30T23:00:00.000Z",
+  "validUntil": "2026-10-01T23:00:00.000Z",
+  "timezone": "America/Vancouver",
+  "title": "Sea To Sky",
+  "highlights": "<p>Wind slabs are building on lee slopes near ridgetops. Be careful around steep, convex terrain.</p>",
+  "confidence": {
+   "rating": {
+    "value": "moderate",
+    "display": "Moderate"
+   }
+  },
+  "summaries": [
+   {
+    "type": {
+     "value": "weather-summary",
+     "display": "Weather Summary"
+    },
+    "content": " <p>More details can be found in the <a href =\"https://www.avalanche.ca/weather/forecast\">Mountain Weather Forecast</a>.</p>"
+   }
+  ],
+  "dangerRatings": [
+   {
+    "date": {
+     "value": "2027-01-15T00:00:00Z",
+     "display": "Friday"
+    },
+    "ratings": {
+     "alp": {
+      "display": "Alpine",
+      "rating": {
+       "value": "considerable",
+       "display": "3 - Considerable"
+      }
+     },
+     "tln": {
+      "display": "Treeline",
+      "rating": {
+       "value": "moderate",
+       "display": "2 - Moderate"
+      }
+     },
+     "btl": {
+      "display": "Below Treeline",
+      "rating": {
+       "value": "low",
+       "display": "1 - Low"
+      }
+     }
+    }
+   },
+   {
+    "date": {
+     "value": "2026-07-02T23:00:00Z",
+     "display": "Thursday"
+    },
+    "ratings": {
+     "alp": {
+      "display": "Alpine",
+      "rating": {
+       "value": "considerable",
+       "display": "3 - Considerable"
+      }
+     },
+     "tln": {
+      "display": "Treeline",
+      "rating": {
+       "value": "moderate",
+       "display": "2 - Moderate"
+      }
+     },
+     "btl": {
+      "display": "Below Treeline",
+      "rating": {
+       "value": "low",
+       "display": "1 - Low"
+      }
+     }
+    }
+   },
+   {
+    "date": {
+     "value": "2026-07-03T23:00:00Z",
+     "display": "Friday"
+    },
+    "ratings": {
+     "alp": {
+      "display": "Alpine",
+      "rating": {
+       "value": "considerable",
+       "display": "3 - Considerable"
+      }
+     },
+     "tln": {
+      "display": "Treeline",
+      "rating": {
+       "value": "moderate",
+       "display": "2 - Moderate"
+      }
+     },
+     "btl": {
+      "display": "Below Treeline",
+      "rating": {
+       "value": "low",
+       "display": "1 - Low"
+      }
+     }
+    }
+   }
+  ],
+  "problems": [
+   {
+    "type": {
+     "value": "windSlab",
+     "display": "Wind slab"
+    },
+    "comment": "<p>Fresh wind slabs.</p>"
+   },
+   {
+    "type": {
+     "value": "persistentSlab",
+     "display": "Persistent slab"
+    },
+    "comment": "<p>A buried surface hoar layer.</p>"
+   }
+  ],
+  "terrainAndTravelAdvice": [],
+  "message": null,
+  "season": null,
+  "comment": null,
+  "isFullTranslation": false
+ },
+ "version": 1,
+ "owner": {
+  "value": "avalanche-canada",
+  "display": "Avalanche Canada",
+  "isExternal": false,
+  "url": "https://avalanche.ca/en"
+ },
+ "media": {
+  "images": []
+ }
+}

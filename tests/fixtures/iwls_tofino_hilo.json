@@ -1,0 +1,30 @@
+[
+ {
+  "eventDate": "2026-09-27T20:42:00Z",
+  "qcFlagCode": "1",
+  "reviewed": false,
+  "timeSeriesId": "5d9dd7d333a9f593161c40ac",
+  "value": 3.594
+ },
+ {
+  "eventDate": "2026-09-28T03:07:00Z",
+  "qcFlagCode": "1",
+  "reviewed": false,
+  "timeSeriesId": "5d9dd7d333a9f593161c40ac",
+  "value": 0.566
+ },
+ {
+  "eventDate": "2026-09-28T09:17:00Z",
+  "qcFlagCode": "1",
+  "reviewed": false,
+  "timeSeriesId": "5d9dd7d333a9f593161c40ac",
+  "value": 3.323
+ },
+ {
+  "eventDate": "2026-09-28T15:06:00Z",
+  "qcFlagCode": "1",
+  "reviewed": false,
+  "timeSeriesId": "5d9dd7d333a9f593161c40ac",
+  "value": 1.064
+ }
+]

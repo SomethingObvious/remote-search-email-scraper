@@ -4,6 +4,9 @@ credentials.json
 token.json
 token.pickle
 *.pickle
+# Twilio messages already answered and unsent pages, which name who asked what
+remote-search-state.json
+remote-search-state.json.tmp
 
 # Python
 __pycache__/

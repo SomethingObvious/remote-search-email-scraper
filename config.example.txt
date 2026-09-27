@@ -2,27 +2,49 @@
 # credentials stay out of the repo, and an environment variable with the same
 # name overrides any line here.
 
-# Twilio, from the account dashboard at https://console.twilio.com
+# Who can ask, as comma-separated email addresses, bare domains and phone numbers
+# in +15551234567 form. It has to be set, and nobody else gets an answer. Your
+# carrier's SMS-to-email gateway domain covers texts sent to the Gmail address,
+# and listing your phone number turns on texting the Twilio number directly.
+ALLOWED_SENDERS=@txt.bell.ca,me@example.com,+15557654321
+
+# Twilio, from the account dashboard at https://console.twilio.com. Leave the
+# number's "A message comes in" webhook empty, as this polls for texts instead.
 TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TWILIO_AUTH_TOKEN=your_auth_token
 TWILIO_PHONE_FROM=+15551234567
+# Where answers to gateway mail get texted.
 PHONE_TO=+15557654321
 
 # Gmail. Turn on the Gmail API at https://console.cloud.google.com, then create an
 # OAuth client ID of type "Desktop app" and download its JSON. The scope has to
-# allow modify, as each message gets marked read once it's answered.
+# allow modify, as each message gets marked read and some get an email reply.
+# Leave the two files out to run with texts to the Twilio number only.
 GMAIL_SCOPE=https://www.googleapis.com/auth/gmail.modify
 GMAIL_CREDENTIALS_FILE=credentials.json
 GMAIL_TOKEN_FILE=token.json
+# Mail from a gateway address like 6045551234@txt.bell.ca is answered by SMS to
+# PHONE_TO, and other allowed mail by email. Addresses or domains here get SMS too.
+REPLY_BY_SMS=
 
-# Who can ask, as comma-separated addresses or bare domains. Your carrier's
-# SMS-to-email gateway domain is the one you want. Left empty, anything that
-# reaches the label gets an answer, and every answer is a billed SMS.
-ALLOWED_SENDERS=@txt.bell.ca,me@example.com
+# Optional answers written by a language model from the search results. The key's
+# prefix picks the provider (Anthropic, OpenAI, OpenRouter, Groq, Google or xAI).
+# AI_BASE_URL and AI_MODEL point it at any OpenAI-compatible endpoint instead, like
+# a local Ollama at http://localhost:11434/v1, which needs no key.
+AI_API_KEY=
+AI_PROVIDER=
+AI_MODEL=
+AI_BASE_URL=
+
+# Optional. With a key the web search uses the Brave Search API instead of DuckDuckGo.
+BRAVE_API_KEY=
 
 # Optional, shown with their defaults. MAX_SMS_CHARS can go up to 1600, which is
-# as long as Twilio will send, and mail over the per-poll cap waits for the next poll.
+# as long as Twilio will send. Past either reply cap, questions wait for a later
+# poll, and the hourly count is kept in STATE_FILE so a restart doesn't reset it.
 LABEL_NAME=Remote Server
 POLL_INTERVAL=5
 MAX_SMS_CHARS=300
 MAX_REPLIES_PER_POLL=10
+MAX_REPLIES_PER_HOUR=30
+STATE_FILE=remote-search-state.json

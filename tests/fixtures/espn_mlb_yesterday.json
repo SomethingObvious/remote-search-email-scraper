@@ -1,0 +1,95 @@
+{
+ "day": null,
+ "events": [
+  {
+   "id": "401817091",
+   "date": "2026-09-26T16:35Z",
+   "name": "New York Mets at Washington Nationals",
+   "shortName": "NYM @ WSH",
+   "status": {
+    "type": {
+     "id": "3",
+     "name": "STATUS_FINAL",
+     "state": "post",
+     "completed": true,
+     "description": "Final",
+     "detail": "Final",
+     "shortDetail": "Final"
+    }
+   },
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "score": "1",
+       "team": {
+        "abbreviation": "WSH",
+        "displayName": "Washington Nationals",
+        "shortDisplayName": "Nationals",
+        "location": "Washington",
+        "name": "Nationals"
+       }
+      },
+      {
+       "homeAway": "away",
+       "score": "7",
+       "team": {
+        "abbreviation": "NYM",
+        "displayName": "New York Mets",
+        "shortDisplayName": "Mets",
+        "location": "New York",
+        "name": "Mets"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401817090",
+   "date": "2026-09-26T19:07Z",
+   "name": "Cincinnati Reds at Toronto Blue Jays",
+   "shortName": "CIN @ TOR",
+   "status": {
+    "type": {
+     "id": "3",
+     "name": "STATUS_FINAL",
+     "state": "post",
+     "completed": true,
+     "description": "Final",
+     "detail": "Final",
+     "shortDetail": "Final"
+    }
+   },
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "score": "1",
+       "team": {
+        "abbreviation": "TOR",
+        "displayName": "Toronto Blue Jays",
+        "shortDisplayName": "Blue Jays",
+        "location": "Toronto",
+        "name": "Blue Jays"
+       }
+      },
+      {
+       "homeAway": "away",
+       "score": "5",
+       "team": {
+        "abbreviation": "CIN",
+        "displayName": "Cincinnati Reds",
+        "shortDisplayName": "Reds",
+        "location": "Cincinnati",
+        "name": "Reds"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

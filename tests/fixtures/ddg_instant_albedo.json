@@ -1,0 +1,40 @@
+{
+ "Abstract": "Albedo is the fraction of sunlight that is diffusely reflected by a body. It is measured on a scale from 0 to 1. Surface albedo is defined as the ratio of radiosity Jₑ to the irradiance Eₑ received by a surface. The proportion reflected is not only determined by properties of the surface itself, but also by the spectral and angular distribution of solar radiation reaching the Earth's surface. These factors vary with atmospheric composition, geographic location, and time. While directional-hemispherical reflectance factor is calculated for a single angle of incidence, albedo is the directional integration of reflectance over all solar angles in a given period. The temporal resolution may range from seconds to daily, monthly, or annual averages. Unless given for a specific wavelength, albedo refers to the entire spectrum of solar radiation. Due to measurement constraints, it is often given for the spectrum in which most solar energy reaches the surface.",
+ "AbstractText": "Albedo is the fraction of sunlight that is diffusely reflected by a body. It is measured on a scale from 0 to 1. Surface albedo is defined as the ratio of radiosity Jₑ to the irradiance Eₑ received by a surface. The proportion reflected is not only determined by properties of the surface itself, but also by the spectral and angular distribution of solar radiation reaching the Earth's surface. These factors vary with atmospheric composition, geographic location, and time. While directional-hemispherical reflectance factor is calculated for a single angle of incidence, albedo is the directional integration of reflectance over all solar angles in a given period. The temporal resolution may range from seconds to daily, monthly, or annual averages. Unless given for a specific wavelength, albedo refers to the entire spectrum of solar radiation. Due to measurement constraints, it is often given for the spectrum in which most solar energy reaches the surface.",
+ "AbstractSource": "Wikipedia",
+ "Answer": "",
+ "Definition": "",
+ "Heading": "Albedo",
+ "RelatedTopics": [
+  {
+   "FirstURL": "https://duckduckgo.com/Bio-geoengineering",
+   "Icon": {
+    "Height": "",
+    "URL": "",
+    "Width": ""
+   },
+   "Result": "<a href=\"https://duckduckgo.com/Bio-geoengineering\">Bio-geoengineering</a> - Bio-geoengineering is a form of climate engineering which seeks to increase the solar reflectivity of crops by modifying physiological leaf and/or canopy traits to help reduce regional surface warming.",
+   "Text": "Bio-geoengineering - Bio-geoengineering is a form of climate engineering which seeks to increase the solar reflectivity of crops by modifying physiological leaf and/or canopy traits to help reduce regional surface warming."
+  },
+  {
+   "FirstURL": "https://duckduckgo.com/Daisyworld",
+   "Icon": {
+    "Height": "",
+    "URL": "",
+    "Width": ""
+   },
+   "Result": "<a href=\"https://duckduckgo.com/Daisyworld\">Daisyworld</a> - Daisyworld is a hypothetical planet and computer model developed by James Lovelock and Andrew Watson to illustrate how physically realistic feedback between life and its environment can give rise to planetary self-regulation without foresight or planning by the organisms themselves.",
+   "Text": "Daisyworld - Daisyworld is a hypothetical planet and computer model developed by James Lovelock and Andrew Watson to illustrate how physically realistic feedback between life and its environment can give rise to planetary self-regulation without foresight or planning by the organisms themselves."
+  },
+  {
+   "FirstURL": "https://duckduckgo.com/Emissivity",
+   "Icon": {
+    "Height": "",
+    "URL": "",
+    "Width": ""
+   },
+   "Result": "<a href=\"https://duckduckgo.com/Emissivity\">Emissivity</a> - The emissivity of the surface of a material is its effectiveness in emitting energy as thermal radiation. Thermal radiation is electromagnetic radiation that most commonly includes both visible radiation and infrared radiation, which is not visible to human eyes.",
+   "Text": "Emissivity - The emissivity of the surface of a material is its effectiveness in emitting energy as thermal radiation. Thermal radiation is electromagnetic radiation that most commonly includes both visible radiation and infrared radiation, which is not visible to human eyes."
+  }
+ ]
+}

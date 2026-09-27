@@ -1,0 +1,25 @@
+{
+ "latitude": 49.135384,
+ "longitude": -125.89173,
+ "generationtime_ms": 0.015854835510253906,
+ "utc_offset_seconds": -25200,
+ "timezone": "America/Vancouver",
+ "timezone_abbreviation": "GMT-7",
+ "elevation": 18.0,
+ "daily_units": {
+  "time": "iso8601",
+  "sunrise": "iso8601",
+  "sunset": "iso8601"
+ },
+ "daily": {
+  "time": [
+   "2026-09-27"
+  ],
+  "sunrise": [
+   "2026-09-27T07:17"
+  ],
+  "sunset": [
+   "2026-09-27T19:10"
+  ]
+ }
+}

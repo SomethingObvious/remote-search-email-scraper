@@ -1,0 +1,97 @@
+{
+ "day": {
+  "date": "2026-09-29"
+ },
+ "events": [
+  {
+   "id": "401891827",
+   "date": "2026-09-29T23:00Z",
+   "name": "Montreal Canadiens at Toronto Maple Leafs",
+   "shortName": "MTL @ TOR",
+   "status": {
+    "type": {
+     "id": "1",
+     "name": "STATUS_SCHEDULED",
+     "state": "pre",
+     "completed": false,
+     "description": "Scheduled",
+     "detail": "Tue, September 29th at 7:00 PM EDT",
+     "shortDetail": "9/29 - 7:00 PM EDT"
+    }
+   },
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "score": "0",
+       "team": {
+        "abbreviation": "TOR",
+        "displayName": "Toronto Maple Leafs",
+        "shortDisplayName": "Maple Leafs",
+        "location": "Toronto",
+        "name": "Maple Leafs"
+       }
+      },
+      {
+       "homeAway": "away",
+       "score": "0",
+       "team": {
+        "abbreviation": "MTL",
+        "displayName": "Montreal Canadiens",
+        "shortDisplayName": "Canadiens",
+        "location": "Montreal",
+        "name": "Canadiens"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401891804",
+   "date": "2026-09-30T02:00Z",
+   "name": "Vancouver Canucks at Edmonton Oilers",
+   "shortName": "VAN @ EDM",
+   "status": {
+    "type": {
+     "id": "1",
+     "name": "STATUS_SCHEDULED",
+     "state": "pre",
+     "completed": false,
+     "description": "Scheduled",
+     "detail": "Tue, September 29th at 10:00 PM EDT",
+     "shortDetail": "9/29 - 10:00 PM EDT"
+    }
+   },
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "score": "0",
+       "team": {
+        "abbreviation": "EDM",
+        "displayName": "Edmonton Oilers",
+        "shortDisplayName": "Oilers",
+        "location": "Edmonton",
+        "name": "Oilers"
+       }
+      },
+      {
+       "homeAway": "away",
+       "score": "0",
+       "team": {
+        "abbreviation": "VAN",
+        "displayName": "Vancouver Canucks",
+        "shortDisplayName": "Canucks",
+        "location": "Vancouver",
+        "name": "Canucks"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

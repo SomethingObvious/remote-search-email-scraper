@@ -1,22 +1,41 @@
 # Remote Search over SMS
 
-Search the web from a phone that can text but has no data. You text a question to your carrier's SMS-to-email gateway, a Gmail filter files it under a label, and this script looks the answer up and texts it back through Twilio. I built it for trips with cell signal and no data, so `sun Tofino` from a trailhead comes back as a normal SMS.
+Search the web from a phone that can text but has no data. A computer at home watches for questions, looks each one up in free web sources and texts the answer back. I built it for trips with a bar of signal or a satellite and no data, so `tide Tofino` from a trailhead comes back as a normal SMS.
 
-The first word of a text picks the source and the rest is the question.
+## Ways to Reach It
+
+Texting your Twilio number is the simplest. The computer polls Twilio's API for new texts, so there's no webhook or public address to set up, and listing your number in `ALLOWED_SENDERS` turns it on. That works from anything that sends ordinary SMS:
+
+- An iPhone 14 or later on iOS 18, through Messages via satellite in Canada and the US. It sends SMS to non-Apple numbers like a Twilio one when your carrier supports SMS by satellite, and replies come back the same way, though you need to be outside with a clear view of the sky.
+- Rogers Satellite in Canada or T-Mobile's T-Satellite in the US, which carry plain SMS to any number.
+- A Garmin inReach, which can text a phone number and gets SMS replies back. I haven't tried that round trip with a Twilio number yet, so it's worth testing before a trip.
+
+It also reads a Gmail label. A text to the Gmail address through your carrier's SMS-to-email gateway (from something like `6045551234@txt.bell.ca`) gets its answer texted to `PHONE_TO`, and plain email from an allowed address gets an email back in the same thread. Several carriers have closed their gateways (Rogers in 2023, AT&T in 2025), so that part depends on yours. inReach messages sent to an email address are not much use, as they come from a no-reply address and only the link inside reaches the device.
+
+## Commands
+
+The first word picks the source and the rest is the question. Anything else is a web search.
 
 | Text | Answer |
 | --- | --- |
-| `weather <place>` | current conditions from Open-Meteo |
-| `sun <place>` | today's sunrise and sunset, in that place's timezone |
-| `define <word>` | Free Dictionary API |
-| `wiki <topic>` | Wikipedia summary |
-| `so <question>` | top Stack Overflow answer |
-| `help` | the command list |
-| anything else | DuckDuckGo, then Wikipedia |
+| `weather <place>`, `forecast <place>` | Open-Meteo, now or over 3 days, plus Environment Canada alerts |
+| `sun <place>`, `time <place>` | sunrise and sunset, or the local time |
+| `tide <place>` | next highs and lows at the nearest Canadian Hydrographic Service station |
+| `avy <place>` | Avalanche Canada danger ratings and problems |
+| `road <highway or BC town>` | DriveBC closures and events, like `road coquihalla` |
+| `drive <place> to <place>` | distance and time from OSRM, with no traffic |
+| `calc`, `convert`, `translate` | arithmetic, units and currency (ECB rates), MyMemory translation |
+| `news [topic]`, `score <team>` | Google News headlines, ESPN scores |
+| `hours <business> <town>` | opening hours, address and phone from OpenStreetMap |
+| `define`, `wiki`, `so` | Free Dictionary, Wikipedia, Stack Overflow |
+| `reddit`, `quora`, `youtube`, `site <domain>` | a web search of that one site |
+| `more`, `help`, `help <word>` | the rest of a long answer, the command list, one command's details |
 
-A region picks the right town when there are several (`weather Paris, France`). Replies are cut to 300 characters of plain ASCII, which fits in two SMS segments, where a single curly quote would make it five.
+Reddit's API is closed to personal apps and Quora has none, so those answers are the top search result's title and snippet rather than the thread itself. Replies are folded into GSM-7 and cut into 300-character pages, since one character outside GSM-7 bills a reply at more than twice as many segments.
 
-It says so when it doesn't know. Wikipedia's search returns a hit for almost any words, so a result only counts when its title overlaps what you asked, and the reply names the article so a near miss is easy to spot. Keywords work a lot better than whole questions.
+It says so when it doesn't know. A result only counts when it overlaps what you asked, and the reply names its source, so a near miss is easy to spot.
+
+With `AI_API_KEY` set, a model writes one short answer from the search results and says "I don't know" when they don't cover it. The key's prefix picks Anthropic, OpenAI, OpenRouter, Groq, Google or xAI, and `AI_BASE_URL` with `AI_MODEL` points it at any OpenAI-compatible server, like a local Ollama. The results are handed to it as untrusted text, and whatever it writes only goes back to whoever asked. `BRAVE_API_KEY` swaps DuckDuckGo for Brave Search.
 
 ## Setup
 
@@ -24,24 +43,25 @@ It needs Python 3.11 or newer.
 
 ```
 python -m venv .venv
-.venv/bin/pip install -e .                  # .venv\Scripts\pip on Windows
-python RemoteSearch.py --query "sun Tofino" # no accounts needed for this
+.venv/bin/pip install -e ".[dev]"           # .venv\Scripts\pip on Windows
+python RemoteSearch.py --query "tide Tofino" # no accounts needed for this
 ```
 
-Copy `config.example.txt` to `config.txt` and fill it in, or set the same names as environment variables. Make a Gmail filter that files mail from your gateway under `LABEL_NAME`, and put the gateway's domain in `ALLOWED_SENDERS`. Set the Google OAuth consent screen to In production, since a Testing app's login expires after 7 days. The first run opens a browser to log in to Gmail. On a headless box, log in once on a machine with a browser and copy the token file over.
+Copy `config.example.txt` to `config.txt` and fill it in, or set the same names as environment variables. For mail, make a Gmail filter that files your gateway's mail under `LABEL_NAME` and set the OAuth consent screen to In production, since a Testing app's login expires after 7 days. The first run opens a browser to log in.
 
 ```
 python RemoteSearch.py            # poll until Ctrl-C
-python RemoteSearch.py --once     # answer what's unread and exit, for cron
-python RemoteSearch.py --dry-run  # log replies instead of texting them
-python test_remotesearch.py       # offline tests
+python RemoteSearch.py --once     # answer what's waiting and exit, for cron
+python RemoteSearch.py --dry-run  # log replies instead of sending them
+python -m pytest                  # offline tests
+python tests/live_smoke.py        # one real question to each keyless source
 ```
 
-On startup it marks mail that's already waiting as read without answering it, unless you pass `--catch-up`. Paths in the config are relative to the folder you run it from.
+At startup it marks mail that's already waiting as read, unless you pass `--catch-up`. Texts to the Twilio number that arrive while it's stopped get answered once it's back, and the ones it has handled are kept in `STATE_FILE`.
 
 ## What It Won't Do
 
-It only texts `PHONE_TO`, never whoever sent the question. Each message is marked read before its reply goes out, so a failed send is dropped rather than retried and billed forever. `MAX_REPLIES_PER_POLL` caps each poll but not the day, so a Twilio usage trigger is still worth setting. The sender check trusts the From header, which can be forged, so it keeps out stray mail but probably not someone determined.
+It won't start without `ALLOWED_SENDERS`, and it only ever answers the sender or `PHONE_TO`. Every reply is billed, so `MAX_REPLIES_PER_POLL` and `MAX_REPLIES_PER_HOUR` (30 by default, and kept across restarts) cap them, and questions past a cap wait for a later poll. A US Twilio number needs A2P 10DLC registration before it can text US phones, and Canadian numbers bought since March 2025 need registering too. Twilio handles STOP and HELP itself on North American numbers, so a text of just STOP blocks every reply to that phone until it texts START. DuckDuckGo blocks automated searches after a burst, which gets a reply saying so, and Brave is the fix if that keeps happening. The mail check trusts the From header, which can be forged.
 
 ## License
 

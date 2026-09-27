@@ -1,0 +1,80 @@
+[
+ {
+  "alternativeName": "Caulfeild Cove",
+  "code": "07795",
+  "id": "5cebf1de3d0f4a073c4bb94c",
+  "latitude": 49.3375,
+  "longitude": -123.253583,
+  "officialName": "Point Atkinson",
+  "operating": true,
+  "timeSeries": [
+   {
+    "code": "wlp-hilo",
+    "id": "5d9dd7b933a9f593161c3e57",
+    "nameEn": "High and Low Tide Predictions",
+    "nameFr": "Prédictions de pleines et basses mers",
+    "owner": "CHS-SHC",
+    "phenomenonId": "5ce598df487b84486892821c"
+   }
+  ],
+  "type": "PERMANENT"
+ },
+ {
+  "code": "00490",
+  "id": "5cebf1df3d0f4a073c4bbcbb",
+  "latitude": 44.65914,
+  "longitude": -63.583386,
+  "officialName": "Halifax",
+  "operating": true,
+  "timeSeries": [
+   {
+    "code": "wlp-hilo",
+    "id": "5d9dd7c633a9f593161c3f72",
+    "nameEn": "High and Low Tide Predictions",
+    "nameFr": "Prédictions de pleines et basses mers",
+    "owner": "CHS-SHC",
+    "phenomenonId": "5ce598df487b84486892821c"
+   }
+  ],
+  "type": "TEMPORARY"
+ },
+ {
+  "code": "08595",
+  "id": "5cebf1e23d0f4a073c4bc075",
+  "latitude": 48.947,
+  "longitude": -125.552,
+  "officialName": "Ucluelet",
+  "operating": true,
+  "timeSeries": [
+   {
+    "code": "wlp-hilo",
+    "id": "5d9dd7d333a9f593161c40ab",
+    "nameEn": "High and Low Tide Predictions",
+    "nameFr": "Prédictions de pleines et basses mers",
+    "owner": "CHS-SHC",
+    "phenomenonId": "5ce598df487b84486892821c"
+   }
+  ],
+  "type": "TEMPORARY"
+ },
+ {
+  "alternativeName": "Clayoquot , CLAYOQUOT ",
+  "code": "08615",
+  "id": "5cebf1e23d0f4a073c4bc07c",
+  "latitude": 49.154,
+  "longitude": -125.913,
+  "officialName": "Tofino",
+  "operating": true,
+  "timeSeries": [
+   {
+    "code": "wlp-hilo",
+    "id": "5d9dd7d333a9f593161c40ac",
+    "nameEn": "High and Low Tide Predictions",
+    "nameFr": "Prédictions de pleines et basses mers",
+    "owner": "CHS-SHC",
+    "phenomenonId": "5ce598df487b84486892821c"
+   }
+  ],
+  "type": "PERMANENT"
+ }
+]

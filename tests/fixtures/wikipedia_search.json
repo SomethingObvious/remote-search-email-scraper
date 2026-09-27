@@ -1,0 +1,23 @@
+{
+ "batchcomplete": "",
+ "continue": {
+  "sroffset": 1,
+  "continue": "-||"
+ },
+ "query": {
+  "searchinfo": {
+   "totalhits": 3846
+  },
+  "search": [
+   {
+    "ns": 0,
+    "title": "Photosynthesis",
+    "pageid": 24544,
+    "size": 111066,
+    "wordcount": 11914,
+    "snippet": "<span class=\"searchmatch\">Photosynthesis</span> is a system of biological processes by which photopigment-bearing autotrophic organisms, such as most plants, algae and cyanobacteria, convert",
+    "timestamp": "2026-08-25T17:04:29Z"
+   }
+  ]
+ }
+}

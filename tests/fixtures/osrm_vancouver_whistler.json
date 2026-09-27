@@ -1,0 +1,40 @@
+{
+ "code": "Ok",
+ "routes": [
+  {
+   "legs": [
+    {
+     "steps": [],
+     "weight": 7146,
+     "summary": "",
+     "duration": 7146,
+     "distance": 121596.1
+    }
+   ],
+   "weight_name": "routability",
+   "weight": 7146,
+   "duration": 7146,
+   "distance": 121596.1
+  }
+ ],
+ "waypoints": [
+  {
+   "hint": "EltyjP___385AAAAQQAAAAAAAAAAAAAAyrWAQuz2-kAAAAAAAAAAADkAAABBAAAAAAAAAAAAAAD9fgAAj1Wp-GX97wLEU6n4jP7vAgAADw4AAAAA",
+   "location": [
+    -123.120241,
+    49.282405
+   ],
+   "name": "Howe Street",
+   "distance": 46.81870753
+  },
+  {
+   "hint": "wQKPg____38JAAAAFAAAAAAAAAAAAAAA3uXCQKAW5EAAAAAAAAAAAAkAAAAUAAAAAAAAAAAAAAD9fgAAn9Gr-Mq2_AKo0av4zLb8AgAA_wkAAAAA",
+   "location": [
+    -122.957409,
+    50.116298
+   ],
+   "name": "Gateway Drive",
+   "distance": 0.6809509957
+  }
+ ]
+}

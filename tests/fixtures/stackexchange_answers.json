@@ -1,0 +1,18 @@
+{
+ "items": [
+  {
+   "is_accepted": true,
+   "score": 18318,
+   "last_activity_date": 1711253853,
+   "last_edit_date": 1711253853,
+   "creation_date": 1224802124,
+   "answer_id": 231855,
+   "question_id": 231767,
+   "content_license": "CC BY-SA 4.0",
+   "body": "<p>To understand what <a href=\"https://docs.python.org/3/reference/simple_stmts.html#yield\" rel=\"noreferrer\"><code>yield</code></a> does, you must understand what <em><a href=\"https://docs.python.org/3/glossary.html#term-generator\" rel=\"noreferrer\">generators</a></em> are. And before you can understand generators, you must understand <em><a href=\"https://docs.python.org/3/glossary.html#term-iterable\" rel=\"noreferrer\">iterables</a></em>.</p>\n<h2>Iterables</h2>\n<p>When you create a list, you can read its items one by one. Reading its items one by one is called iteration:</p>\n<pre><code>&gt;&gt;&gt; mylist = [1, 2, 3]\n&gt;&gt;&gt; for i in mylist:\n...    print(i)\n1\n2\n3\n</code></pre>\n<p><code>mylist</code> is an <em>iterable</em>. When you use a list comprehension, you create a list, and so an iterable:</p>\n<pre><code>&gt;&gt;&gt; mylist = [x*x for x in range(3)]\n&gt;&gt;&gt; for i in mylist:\n...    print(i)\n0\n1\n4\n</code></pre>\n<p>Everything you can use &quot;<code>for... in...</code>&quot; on is an iterable; <code>lists</code>, <code>strings</code>, files...</p>\n<p>These iterables are handy because you can read them as much as you wish, but you store all the values in memory and this is not always what you want when you have a lot of values.</p>\n<h2>Generators</h2>\n<p>Generators are <em><a href=\"https://docs.python.org/3/glossary.html#term-iterator\" rel=\"noreferrer\">iterators</a></em>, a kind of iterable <strong>you can only iterate over once</strong>. Generators do not store all the values in memory, <strong>they generate the values on the fly</strong>:</p>"
+  }
+ ],
+ "has_more": true,
+ "quota_max": 300,
+ "quota_remaining": 296
+}

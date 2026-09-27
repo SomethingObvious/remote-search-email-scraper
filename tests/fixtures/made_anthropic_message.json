@@ -1,0 +1,12 @@
+{
+ "id": "msg_01XFDUDYJgAACzvnptvVoYEL",
+ "type": "message",
+ "role": "assistant",
+ "model": "claude-haiku-4-5",
+ "content": [
+  {"type": "text", "text": "Boil it for **1 minute**, or 3 minutes above 2,000 m, according to the CDC."}
+ ],
+ "stop_reason": "end_turn",
+ "stop_sequence": null,
+ "usage": {"input_tokens": 412, "output_tokens": 24}
+}

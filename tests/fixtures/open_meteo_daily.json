@@ -1,0 +1,55 @@
+{
+ "latitude": 49.135384,
+ "longitude": -125.89173,
+ "generationtime_ms": 0.5078315734863281,
+ "utc_offset_seconds": -25200,
+ "timezone": "America/Vancouver",
+ "timezone_abbreviation": "GMT-7",
+ "elevation": 18.0,
+ "daily_units": {
+  "time": "iso8601",
+  "weather_code": "wmo code",
+  "temperature_2m_max": "°C",
+  "temperature_2m_min": "°C",
+  "precipitation_probability_max": "%",
+  "precipitation_sum": "mm",
+  "wind_speed_10m_max": "km/h"
+ },
+ "daily": {
+  "time": [
+   "2026-09-27",
+   "2026-09-28",
+   "2026-09-29"
+  ],
+  "weather_code": [
+   3,
+   65,
+   61
+  ],
+  "temperature_2m_max": [
+   15.0,
+   14.1,
+   15.4
+  ],
+  "temperature_2m_min": [
+   6.2,
+   10.1,
+   10.5
+  ],
+  "precipitation_probability_max": [
+   2,
+   100,
+   96
+  ],
+  "precipitation_sum": [
+   0.0,
+   40.6,
+   10.28
+  ],
+  "wind_speed_10m_max": [
+   14.8,
+   27.1,
+   23.2
+  ]
+ }
+}

@@ -1,0 +1,51 @@
+[
+ {
+  "place_id": 374186917,
+  "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+  "osm_type": "way",
+  "osm_id": 135497646,
+  "lat": "49.3744830",
+  "lon": "-121.4380596",
+  "category": "amenity",
+  "type": "cafe",
+  "place_rank": 30,
+  "importance": 5.157320515750389e-05,
+  "addresstype": "amenity",
+  "name": "Tim Hortons",
+  "display_name": "Tim Hortons, 250, Old Hope-Princeton Way, Hope, Fraser Valley Regional District, British Columbia, V0X 1L4, Canada",
+  "address": {
+   "amenity": "Tim Hortons",
+   "house_number": "250",
+   "road": "Old Hope-Princeton Way",
+   "town": "Hope",
+   "county": "Fraser Valley Regional District",
+   "state": "British Columbia",
+   "ISO3166-2-lvl4": "CA-BC",
+   "postcode": "V0X 1L4",
+   "country": "Canada",
+   "country_code": "ca"
+  },
+  "extratags": {
+   "phone": "+1-604-860-0601",
+   "cuisine": "coffee_shop",
+   "toilets": "yes",
+   "website": "https://www.timhortons.ca/store-locator/store/restaurant_69275",
+   "building": "yes",
+   "takeaway": "yes",
+   "drive_through": "yes",
+   "opening_hours": "Mo-Su 05:00-22:00",
+   "brand:wikidata": "Q175106",
+   "brand:wikipedia": "en:Tim Hortons",
+   "internet_access": "wlan",
+   "outdoor_seating": "no",
+   "air_conditioning": "yes",
+   "opening_hours:drive_through": "24/7"
+  },
+  "boundingbox": [
+   "49.3744129",
+   "49.3745531",
+   "-121.4382473",
+   "-121.4378719"
+  ]
+ }
+]
