@@ -100,7 +100,9 @@ def test_catch_up_answers_what_was_waiting(twilio: FakeMessages, state_path: Pat
 
 
 def test_a_restart_answers_what_it_missed(twilio: FakeMessages, state_path: Path) -> None:
-    twilio.stored = [text_message("SM1", "before", minutes_ago=60 * 30)]
+    # Inside the first run's one-day lookback at any hour. Twilio filters by whole days,
+    # so a text 30 hours old only made it in after 06:00 UTC.
+    twilio.stored = [text_message("SM1", "before", minutes_ago=60 * 20)]
     texts_in(inbox(twilio, state_path, catch_up=True))
     # Down for three days, during which two texts arrived.
     saved = json.loads(state_path.read_text(encoding="utf-8"))

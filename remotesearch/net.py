@@ -15,7 +15,7 @@ from urllib3.util.retry import Retry
 logger = logging.getLogger("remotesearch")
 
 REQUEST_TIMEOUT = 10  # seconds, so one stuck API can't hang the poll loop
-REPO_URL = "https://github.com/SomethingObvious/remote-search-email-scraper"
+REPO_URL = "https://github.com/SomethingObvious/remote-search-sms"
 # Wikimedia's User-Agent policy asks for this shape, with a way to reach whoever runs
 # it in the brackets, and it may block a script that sends the requests default.
 USER_AGENT = f"RemoteSearch/4.0 ({REPO_URL}) python-requests/{requests.__version__}"

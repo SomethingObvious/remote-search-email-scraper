@@ -158,7 +158,7 @@ def chat_body(name: str, field: str) -> dict[str, Any]:
             "https://openrouter.ai/api/v1/chat/completions",
             {
                 "Authorization": "Bearer sk-or-v1-abc",
-                "HTTP-Referer": "https://github.com/SomethingObvious/remote-search-email-scraper",
+                "HTTP-Referer": "https://github.com/SomethingObvious/remote-search-sms",
                 "X-Title": "RemoteSearch",
             },
             chat_body("openai/gpt-5.4-nano", "max_tokens"),
